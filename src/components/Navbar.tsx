@@ -21,6 +21,7 @@ interface NavbarProps {
   currencies: CurrencyConfig[];
   currentCurrency: CurrencyConfig;
   onSelectCurrency: (c: CurrencyConfig) => void;
+  onOpenAccount: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -32,6 +33,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   currencies,
   currentCurrency,
   onSelectCurrency,
+  onOpenAccount,
 }) => {
   const getRoleLabel = (role: User['role']) => {
     switch (role) {
@@ -195,8 +197,12 @@ export const Navbar: React.FC<NavbarProps> = ({
               </select>
             )}
 
-            {/* Logged-in User Display */}
-            <div className="hidden lg:flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700/80 text-right">
+            {/* Logged-in User Display - يفتح صفحة حسابي */}
+            <button
+              onClick={onOpenAccount}
+              title="حسابي - تعديل الاسم والإيميل وكلمة السر"
+              className="hidden lg:flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700/80 text-right hover:bg-slate-700/80 hover:border-indigo-500/60 transition-colors cursor-pointer"
+            >
               <span className="text-base leading-none">{currentUser.avatar || '👤'}</span>
               <div>
                 <div className="text-xs font-bold text-slate-100 leading-tight">
@@ -206,7 +212,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   {getRoleLabel(currentUser.role)}
                 </div>
               </div>
-            </div>
+            </button>
 
             {/* Logout Button */}
             <button

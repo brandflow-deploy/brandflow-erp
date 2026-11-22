@@ -123,6 +123,38 @@ if (apiKey) {
   });
 }
 
+// حسابي: المستخدم يعدّل بياناته بنفسه (الاسم ومزامنة الإيميل مع جدول الفريق)
+// تغيير الإيميل وكلمة السر نفسها يتم من المتصفح عبر جلسة Supabase الآمنة (مع لينك تأكيد للإيميل الجديد)
+app.patch('/api/account', requireAuth, async (req, res) => {
+  if (!supabaseService) {
+    return res.status(503).json({ error: 'خدمة الحسابات غير متاحة حالياً' });
+  }
+  const { name, email } = req.body || {};
+  const wantsName = typeof name === 'string' && name.trim().length > 0;
+  const wantsEmail = typeof email === 'string' && email.trim().length > 0;
+  if (!wantsName && !wantsEmail) {
+    return res.status(400).json({ error: 'لا توجد تغييرات مرسلة' });
+  }
+  try {
+    if (wantsName) {
+      const { error } = await supabaseService.from('team_users').update({ name: name.trim() }).eq('id', req.auth!.id);
+      if (error) throw error;
+    }
+    if (wantsEmail) {
+      const newEmail = email.trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+        return res.status(400).json({ error: 'صيغة البريد الإلكتروني غير صحيحة' });
+      }
+      const { error } = await supabaseService.from('team_users').update({ email: newEmail }).eq('id', req.auth!.id);
+      if (error) throw error;
+    }
+    return res.json({ ok: true });
+  } catch (e: any) {
+    console.error('Account sync error:', e);
+    return res.status(500).json({ error: 'فشل حفظ بيانات الحساب' });
+  }
+});
+
 // API: Health check
 // إعدادات عامة آمنة للمتصفح وقت التشغيل (مفتاح anon مخصص للمتصفح أصلاً وتحميه سياسات RLS)
 app.get('/api/public-config', (_req, res) => {

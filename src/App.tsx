@@ -31,6 +31,7 @@ import { ProductsCatalogModal } from './components/ProductsCatalogModal';
 import { PrintManifestModal } from './components/PrintManifestModal';
 import { LoginScreen } from './components/LoginScreen';
 import { TeamSettingsView } from './components/TeamSettingsView';
+import { MyAccountModal } from './components/MyAccountModal';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { normalizeArabic } from './utils/parser';
 import { applyStockDelta } from './utils/variants';
@@ -124,6 +125,7 @@ export default function App() {
   const [isOrderFormOpen, setIsOrderFormOpen] = useState(false);
   const [orderToEdit, setOrderToEdit] = useState<Order | null>(null);
   const [isQuickActionOpen, setIsQuickActionOpen] = useState(false);
+  const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [isBrandsModalOpen, setIsBrandsModalOpen] = useState(false);
   const [isCatalogModalOpen, setIsCatalogModalOpen] = useState(false);
   const [isPrintManifestOpen, setIsPrintManifestOpen] = useState(false);
@@ -827,6 +829,7 @@ export default function App() {
         setActiveTab={setActiveTab}
         currentUser={effectiveUser}
         onOpenQuickAction={() => setIsQuickActionOpen(true)}
+        onOpenAccount={() => setIsAccountOpen(true)}
         onLogout={handleLogout}
         currencies={currencies}
         currentCurrency={currentCurrency}
@@ -1233,6 +1236,13 @@ export default function App() {
       <OfflineIndicator />
 
       {/* Modals */}
+      <MyAccountModal
+        isOpen={isAccountOpen}
+        onClose={() => setIsAccountOpen(false)}
+        currentUser={effectiveUser}
+        onUpdateUser={(u) => setCurrentUser(u)}
+      />
+
       <SmartOrderModal
         isOpen={isSmartModalOpen}
         onClose={() => setIsSmartModalOpen(false)}
