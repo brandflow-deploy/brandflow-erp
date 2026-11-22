@@ -1,0 +1,13 @@
+name = "brandflow-erp"
+main = "workers/app.ts"
+compatibility_date = "2025-11-22"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+
+[vars]
+NODE_ENV = "production"
+CLOUDFLARE_WORKER = "true"
+ALLOW_DEV_AUTH = "false"

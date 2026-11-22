@@ -9,7 +9,7 @@ import { buildProjectZipBuffer } from './server/projectZip.ts';
 
 dotenv.config();
 
-const __filename = fileURLToPath(import.meta.url);
+const __filename = import.meta.url ? fileURLToPath(import.meta.url) : '/app/server.js';
 const __dirname = path.dirname(__filename);
 
 const app = express();
@@ -390,7 +390,8 @@ app.get('/api/download-project-zip', requireAuth, requireAdmin, (_req, res) => {
 // Setup Vite or Static File Serving
 async function startServer() {
   if (!isProd) {
-    const { createServer: createViteServer } = await import('vite');
+    const vitePkg = 'vite';
+    const { createServer: createViteServer } = await import(/* @vite-ignore */ vitePkg);
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
@@ -408,7 +409,7 @@ async function startServer() {
   });
 }
 
-if (!process.env.VERCEL) {
+if (!process.env.VERCEL && !process.env.CLOUDFLARE_WORKER) {
   startServer().catch((err) => {
     console.error('Failed to start server:', err);
     process.exit(1);
