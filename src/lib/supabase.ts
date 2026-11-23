@@ -113,7 +113,7 @@ export async function fetchCurrentProfile(): Promise<{ profile: User | null; err
       if (ins.error) return { profile: null, error: ins.error };
       return { profile: bootstrap };
     }
-    return { profile: null, error: 'لا يوجد ملف مستخدم مفعّل لهذا الحساب. راجع المدير العام.' };
+    return { profile: null, error: 'هذا الحساب غير مفعّل بعد. لو سجّلت جديداً كمسوّق فحسابك قيد مراجعة الإدارة وسيُفعّل بعد الموافقة، وإلا فراجع المدير العام.' };
   }
 
   return { profile: mapUserRow(data) };

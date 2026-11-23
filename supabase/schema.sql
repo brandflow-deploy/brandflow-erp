@@ -70,7 +70,7 @@ create table if not exists public.team_users (
   id uuid primary key references auth.users(id) on delete cascade,
   name text not null,
   email text not null unique,
-  role text not null check (role in ('admin', 'moderator', 'production', 'shipping')),
+  role text not null check (role in ('admin', 'moderator', 'production', 'shipping', 'affiliate')),
   avatar text,
   is_active boolean not null default true,
   is_owner boolean not null default false,
