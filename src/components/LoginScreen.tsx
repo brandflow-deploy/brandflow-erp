@@ -6,9 +6,10 @@ import { isSupabaseConfigured, signInWithPassword } from '../lib/supabase';
 interface LoginScreenProps {
   devAuthEnabled: boolean;
   onDevLogin: (rememberMe: boolean) => void;
+  onOpenSignup?: () => void;
 }
 
-export const LoginScreen: React.FC<LoginScreenProps> = ({ devAuthEnabled, onDevLogin }) => {
+export const LoginScreen: React.FC<LoginScreenProps> = ({ devAuthEnabled, onDevLogin, onOpenSignup }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -165,6 +166,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ devAuthEnabled, onDevL
             >
               <Wrench className="w-4 h-4" />
               <span>دخول وضع التطوير المحلي (بدون Supabase)</span>
+            </button>
+          )}
+
+          {onOpenSignup && supabaseReady && (
+            <button
+              type="button"
+              onClick={onOpenSignup}
+              className="w-full text-center text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
+            >
+              مسوّق جديد؟ سجّل حسابك وبراندك من هنا
             </button>
           )}
 

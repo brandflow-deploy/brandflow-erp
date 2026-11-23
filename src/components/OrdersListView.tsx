@@ -56,7 +56,7 @@ export const OrdersListView: React.FC<OrdersListViewProps> = ({
   const isProduction = currentUser.role === 'production';
   const isShipping = currentUser.role === 'shipping';
   const canViewFinancials = isAdmin;
-  const canCreateOrders = isAdmin || currentUser.role === 'moderator';
+  const canCreateOrders = isAdmin || currentUser.role === 'moderator' || currentUser.role === 'affiliate';
   const canDelete = isAdmin;
   // مسؤول الشحن: لا ينشئ ولا يعدّل بيانات الأوردر، يحدّث حالات الشحن والتسليم ويطبع البوالص فقط
   const canEditOrders = !isProduction && !isShipping;

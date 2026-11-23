@@ -30,6 +30,7 @@ import { BrandsManagementModal } from './components/BrandsManagementModal';
 import { ProductsCatalogModal } from './components/ProductsCatalogModal';
 import { PrintManifestModal } from './components/PrintManifestModal';
 import { LoginScreen } from './components/LoginScreen';
+import { SignupScreen } from './components/SignupScreen';
 import { TeamSettingsView } from './components/TeamSettingsView';
 import { MyAccountModal } from './components/MyAccountModal';
 import { OfflineIndicator } from './components/OfflineIndicator';
@@ -125,6 +126,7 @@ export default function App() {
   const [isOrderFormOpen, setIsOrderFormOpen] = useState(false);
   const [orderToEdit, setOrderToEdit] = useState<Order | null>(null);
   const [isQuickActionOpen, setIsQuickActionOpen] = useState(false);
+  const [showSignup, setShowSignup] = useState(false);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [isBrandsModalOpen, setIsBrandsModalOpen] = useState(false);
   const [isCatalogModalOpen, setIsCatalogModalOpen] = useState(false);
@@ -150,7 +152,7 @@ export default function App() {
       if (!mounted) return;
       if (profile) {
         if (profile.isActive === false) {
-          setProfileError('هذا الحساب معطّل حالياً. يرجى مراجعة المدير العام.');
+          setProfileError('هذا الحساب غير مفعّل بعد. لو سجّلت جديداً كمسوّق فحسابك قيد مراجعة الإدارة، ولو كنت عضواً سابقاً فراجع المدير العام.');
           await signOut();
           setCurrentUser(null);
         } else {
@@ -291,6 +293,10 @@ export default function App() {
       if (activeTab !== 'orders') setActiveTab('orders');
     } else if (effectiveUser.role === 'moderator') {
       if (activeTab === 'catalog' || activeTab === 'audit' || activeTab === 'settings') {
+        setActiveTab('dashboard');
+      }
+    } else if (effectiveUser.role === 'affiliate') {
+      if (activeTab === 'audit' || activeTab === 'settings') {
         setActiveTab('dashboard');
       }
     }
@@ -802,7 +808,15 @@ export default function App() {
             <button onClick={() => setProfileError(null)} className="mr-2 text-rose-200 hover:text-white">✕</button>
           </div>
         )}
-        <LoginScreen devAuthEnabled={devAuthEnabled} onDevLogin={handleDevLogin} />
+        {showSignup ? (
+          <SignupScreen onBackToLogin={() => setShowSignup(false)} />
+        ) : (
+          <LoginScreen
+            devAuthEnabled={devAuthEnabled}
+            onDevLogin={handleDevLogin}
+            onOpenSignup={() => setShowSignup(true)}
+          />
+        )}
         <OfflineIndicator />
       </>
     );
@@ -820,6 +834,8 @@ export default function App() {
   const isAdmin = effectiveUser.role === 'admin';
   const isModerator = effectiveUser.role === 'moderator';
   const isShipping = effectiveUser.role === 'shipping';
+  const isAffiliate = effectiveUser.role === 'affiliate';
+  const canEditStock = isAdmin || effectiveUser.role === 'production';
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans antialiased text-slate-900 selection:bg-indigo-600 selection:text-white pb-12">
@@ -870,7 +886,7 @@ export default function App() {
 
       {/* Main Viewport Container */}
       <main className="no-print flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {activeTab === 'dashboard' && (isAdmin || isModerator) && (
+        {activeTab === 'dashboard' && (isAdmin || isModerator || isAffiliate) && (
           <DashboardView
             orders={visibleOrders}
             brands={visibleBrands}
@@ -923,7 +939,7 @@ export default function App() {
         )}
 
         {/* BRANDS TAB (Admin: Full Edit | Moderator: Read-Only) */}
-        {activeTab === 'brands' && (isAdmin || isModerator) && (
+        {activeTab === 'brands' && (isAdmin || isModerator || isAffiliate) && (
           <div className="space-y-4">
             <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
@@ -1052,7 +1068,9 @@ export default function App() {
                   <span>
                     {isAdmin
                       ? 'كتالوج المنتجات وتكاليف التصنيع والمخزون'
-                      : 'التصنيع والمخزن — إدارة الأرصدة والكميات'}
+                      : isAffiliate
+                        ? 'منتجات براندك وأرصدة المخزون (عرض فقط)'
+                        : 'التصنيع والمخزن — إدارة الأرصدة والكميات'}
                   </span>
                   <span className="text-xs font-mono text-sky-700 font-bold">
                     ({visibleProducts.length} صنف)
@@ -1061,7 +1079,9 @@ export default function App() {
                 <p className="text-xs text-slate-500 mt-1">
                   {isAdmin
                     ? 'تعديل تكاليف الخامات والتصنيع وإدارة أرصدة المخزون لكل صنف'
-                    : 'تحديث أرصدة المخزون الفعلي ومتابعة تنبيهات انخفاض الكمية للأصناف قيد التجهيز'}
+                    : isAffiliate
+                      ? 'متابعة الكميات المتاحة من منتجاتك بالمخزن وتنبيهات انخفاض الكمية'
+                      : 'تحديث أرصدة المخزون الفعلي ومتابعة تنبيهات انخفاض الكمية للأصناف قيد التجهيز'}
                 </p>
               </div>
               <button
@@ -1149,14 +1169,16 @@ export default function App() {
                         )}
                       </div>
                       <div className="flex items-center gap-1.5 font-mono">
-                        <button
-                          onClick={() => handleUpdateStock(prod.id, Math.max(0, displayStock - 1))}
-                          disabled={hasVariants}
-                          className="w-7 h-7 rounded bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-xs font-bold flex items-center justify-center transition-colors"
-                          title={hasVariants ? 'عدّل المخزون لكل مقاس/لون من جدول المتغيرات' : 'إنقاص قطعة'}
-                        >
-                          -
-                        </button>
+                        {canEditStock && (
+                          <button
+                            onClick={() => handleUpdateStock(prod.id, Math.max(0, displayStock - 1))}
+                            disabled={hasVariants}
+                            className="w-7 h-7 rounded bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-xs font-bold flex items-center justify-center transition-colors"
+                            title={hasVariants ? 'عدّل المخزون لكل مقاس/لون من جدول المتغيرات' : 'إنقاص قطعة'}
+                          >
+                            -
+                          </button>
+                        )}
                         <span
                           className={`font-bold px-2 tabular-nums ${
                             isLowStock ? 'text-rose-600' : 'text-slate-900'
@@ -1164,14 +1186,16 @@ export default function App() {
                         >
                           {displayStock}
                         </span>
-                        <button
-                          onClick={() => handleUpdateStock(prod.id, displayStock + 1)}
-                          disabled={hasVariants}
-                          className="w-7 h-7 rounded bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-xs font-bold flex items-center justify-center transition-colors"
-                          title={hasVariants ? 'عدّل المخزون لكل مقاس/لون من جدول المتغيرات' : 'زيادة قطعة'}
-                        >
-                          +
-                        </button>
+                        {canEditStock && (
+                          <button
+                            onClick={() => handleUpdateStock(prod.id, displayStock + 1)}
+                            disabled={hasVariants}
+                            className="w-7 h-7 rounded bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-xs font-bold flex items-center justify-center transition-colors"
+                            title={hasVariants ? 'عدّل المخزون لكل مقاس/لون من جدول المتغيرات' : 'زيادة قطعة'}
+                          >
+                            +
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

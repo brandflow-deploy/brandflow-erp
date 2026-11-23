@@ -36,6 +36,7 @@ const ROLE_LABELS: Record<UserRole, string> = {
   moderator: 'مسؤول مبيعات',
   production: 'مسؤول تصنيع ومخزن',
   shipping: 'مسؤول شحن',
+  affiliate: 'مسوّق بالعمولة',
 };
 
 const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
@@ -43,6 +44,7 @@ const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
   moderator: 'الأوردرات والرئيسية بدون أرباح، البراندات للعرض فقط',
   production: 'التصنيع والمخزن وأوردرات التجهيز فقط',
   shipping: 'أوردرات الشحن والتسليم للبراندات المحددة فقط، بدون أرباح أو تكاليف',
+  affiliate: 'براند واحد خاص به: يسجّل أوردراته ويتابعها ويرى منتجاته ومخزونها، بدون أرباح أو تكاليف',
 };
 
 async function adminHeaders(): Promise<Record<string, string>> {
@@ -272,6 +274,75 @@ export const TeamSettingsView: React.FC<TeamSettingsViewProps> = ({
             إدارة المستخدمين تتطلب ربط قاعدة بيانات Supabase (وضع التطوير المحلي يعمل بحساب مدير
             واحد فقط). اضبط متغيرات البيئة كما في ملف README لتفعيل تعدد المستخدمين.
           </span>
+        </div>
+      )}
+
+      {/* طلبات التسجيل الجديدة بانتظار الموافقة */}
+      {supabaseReady && users.some((u) => u.isActive === false && !u.isOwner) && (
+        <div className="bg-amber-50 rounded-2xl border border-amber-300 p-5 shadow-xs space-y-3">
+          <h2 className="text-sm font-bold text-amber-900 flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-600" />
+            <span>طلبات تسجيل بانتظار الموافقة</span>
+            <span className="text-[11px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+              {users.filter((u) => u.isActive === false && !u.isOwner).length}
+            </span>
+          </h2>
+          <p className="text-[11px] text-amber-800">
+            هذه الحسابات سجّلت من صفحة التسجيل العامة (أو عُطّلت سابقاً) ولا تستطيع الدخول حتى
+            توافقي عليها. الموافقة تفعّل الحساب فوراً، والرفض يحذفه نهائياً مع برانده إن كان
+            مسوّقاً جديداً.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {users
+              .filter((u) => u.isActive === false && !u.isOwner)
+              .map((u) => {
+                const access = u.brandsAccess || [];
+                const accessLabel = access
+                  .filter((id) => id !== 'all')
+                  .map((id) => brands.find((b) => b.id === id)?.name || id)
+                  .join('، ');
+                return (
+                  <div
+                    key={u.id}
+                    className="p-4 rounded-xl border border-amber-200 bg-white space-y-2"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-bold text-slate-900 text-sm">{u.name}</div>
+                        <div className="text-[11px] text-slate-500 font-mono" dir="ltr">
+                          {u.email}
+                        </div>
+                      </div>
+                      <span className="text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded-lg">
+                        {ROLE_LABELS[u.role]}
+                      </span>
+                    </div>
+                    {accessLabel && (
+                      <p className="text-[11px] text-slate-500">
+                        <span className="font-bold text-slate-600">البراند: </span>
+                        {accessLabel}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+                      <button
+                        onClick={() => handleToggleActive(u)}
+                        className="px-3 py-1.5 text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors flex items-center gap-1"
+                      >
+                        <CheckCircle2 className="w-3 h-3" />
+                        <span>موافقة وتفعيل</span>
+                      </button>
+                      <button
+                        onClick={() => handleDelete(u)}
+                        className="px-3 py-1.5 text-[11px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors flex items-center gap-1"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        <span>رفض وحذف</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
         </div>
       )}
 

@@ -46,6 +46,7 @@ export function normalizeLegacyRole(role: string): UserRole {
   if (role === 'admin' || role === 'reports') return 'admin';
   if (role === 'production' || role === 'workshop') return 'production';
   if (role === 'shipping') return 'shipping';
+  if (role === 'affiliate') return 'affiliate';
   return 'moderator';
 }
 

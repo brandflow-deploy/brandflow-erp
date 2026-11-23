@@ -175,6 +175,79 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// API: تسجيل مسوّق جديد (عام — الحساب يبقى بانتظار موافقة المدير)
+app.post('/api/signup', async (req, res) => {
+  if (!supabaseService) {
+    return res.status(503).json({ error: 'التسجيل غير متاح حالياً، حاول لاحقاً' });
+  }
+  const { name, email, password, brandName } = req.body || {};
+  const cleanName = String(name || '').trim();
+  const cleanEmail = String(email || '').trim().toLowerCase();
+  const cleanBrand = String(brandName || '').trim();
+  const pw = String(password || '');
+
+  if (!cleanName || !cleanBrand) {
+    return res.status(400).json({ error: 'الاسم واسم البراند مطلوبان' });
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+    return res.status(400).json({ error: 'البريد الإلكتروني غير صالح' });
+  }
+  if (pw.length < 8) {
+    return res.status(400).json({ error: 'كلمة المرور يجب ألا تقل عن 8 أحرف' });
+  }
+
+  try {
+    const { data: created, error: createErr } = await supabaseService.auth.admin.createUser({
+      email: cleanEmail,
+      password: pw,
+      email_confirm: true,
+      user_metadata: { name: cleanName },
+    });
+    if (createErr) {
+      const msg = createErr.message || '';
+      if (/already|registered|exists/i.test(msg)) {
+        return res.status(400).json({ error: 'هذا البريد مسجل بالفعل — جرّب تسجيل الدخول' });
+      }
+      return res.status(400).json({ error: msg });
+    }
+    const uid = created.user?.id;
+    if (!uid) {
+      return res.status(500).json({ error: 'تعذر إنشاء الحساب' });
+    }
+
+    const brandId = `brand-${Date.now()}`;
+    const brandCode = (cleanBrand.replace(/\s+/g, '-').slice(0, 20) || 'BRAND').toUpperCase();
+    const { error: brandErr } = await supabaseService.from('brands').insert({
+      id: brandId,
+      name: cleanBrand,
+      code: brandCode,
+    });
+    if (brandErr) {
+      await supabaseService.auth.admin.deleteUser(uid);
+      return res.status(400).json({ error: brandErr.message });
+    }
+
+    const { error: userErr } = await supabaseService.from('team_users').insert({
+      id: uid,
+      name: cleanName,
+      email: cleanEmail,
+      role: 'affiliate',
+      is_active: false,
+      is_owner: false,
+      brands_access: [brandId],
+    });
+    if (userErr) {
+      await supabaseService.from('brands').delete().eq('id', brandId);
+      await supabaseService.auth.admin.deleteUser(uid);
+      return res.status(400).json({ error: userErr.message });
+    }
+
+    return res.json({ success: true });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'خطأ غير متوقع' });
+  }
+});
+
 // API: Parse Orders via Gemini AI or structured fallback (محمي بتسجيل الدخول)
 app.post('/api/parse-orders', requireAuth, async (req, res) => {
   try {
@@ -371,6 +444,29 @@ app.delete('/api/admin/users/:id', requireAuth, requireAdmin, async (req, res) =
     return res.status(400).json({ error: 'لا يمكنك حذف حسابك الشخصي' });
   }
   try {
+    // لو المستخدم مسوّق معلّق (لم يُفعّل بعد)، نحذف برانده الفارغ معه عند الرفض
+    const { data: targetUser } = await supabaseService
+      .from('team_users')
+      .select('role, is_active, brands_access')
+      .eq('id', id)
+      .maybeSingle();
+    if (
+      targetUser &&
+      targetUser.role === 'affiliate' &&
+      targetUser.is_active === false &&
+      Array.isArray(targetUser.brands_access)
+    ) {
+      for (const bId of targetUser.brands_access) {
+        if (typeof bId !== 'string' || bId === 'all') continue;
+        const [{ count: ordersCount }, { count: productsCount }] = await Promise.all([
+          supabaseService.from('orders').select('id', { count: 'exact', head: true }).eq('brand_id', bId),
+          supabaseService.from('products').select('id', { count: 'exact', head: true }).eq('brand_id', bId),
+        ]);
+        if (!ordersCount && !productsCount) {
+          await supabaseService.from('brands').delete().eq('id', bId);
+        }
+      }
+    }
     await supabaseService.from('team_users').delete().eq('id', id);
     const { error } = await supabaseService.auth.admin.deleteUser(id);
     if (error) return res.status(400).json({ error: error.message });

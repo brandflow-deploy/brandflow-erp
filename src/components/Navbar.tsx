@@ -45,13 +45,18 @@ export const Navbar: React.FC<NavbarProps> = ({
         return 'مسؤول تصنيع ومخزن';
       case 'shipping':
         return 'مسؤول شحن';
+      case 'affiliate':
+        return 'مسوّق بالعمولة';
     }
   };
 
-  const canSeeDashboard = currentUser.role === 'admin' || currentUser.role === 'moderator';
+  const canSeeDashboard =
+    currentUser.role === 'admin' || currentUser.role === 'moderator' || currentUser.role === 'affiliate';
   const canSeeOrders = true; // كل الأدوار ترى الأوردرات (المحتوى يُقيَّد حسب الدور والبراندات)
-  const canSeeCatalog = currentUser.role === 'admin' || currentUser.role === 'production';
-  const canSeeBrands = currentUser.role === 'admin' || currentUser.role === 'moderator';
+  const canSeeCatalog =
+    currentUser.role === 'admin' || currentUser.role === 'production' || currentUser.role === 'affiliate';
+  const canSeeBrands =
+    currentUser.role === 'admin' || currentUser.role === 'moderator' || currentUser.role === 'affiliate';
   const canSeeAudit = currentUser.role === 'admin';
   const canSeeSettings = currentUser.role === 'admin';
 
