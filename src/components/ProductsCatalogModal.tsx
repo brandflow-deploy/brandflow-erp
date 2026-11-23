@@ -56,6 +56,7 @@ export const ProductsCatalogModal: React.FC<ProductsCatalogModalProps> = ({
   const [rawMaterialCost, setRawMaterialCost] = useState<number>(150);
   const [manufacturingCost, setManufacturingCost] = useState<number>(90);
   const [defaultSellingPrice, setDefaultSellingPrice] = useState<number>(450);
+  const [commissionPct, setCommissionPct] = useState<string>('');
   const [stockQuantity, setStockQuantity] = useState<number>(20);
   const [lowStockThreshold, setLowStockThreshold] = useState<number>(5);
   const [useVariants, setUseVariants] = useState(false);
@@ -77,6 +78,9 @@ export const ProductsCatalogModal: React.FC<ProductsCatalogModalProps> = ({
   if (!isOpen) return null;
 
   const isAdmin = currentUser.role === 'admin';
+  const isSubscriber = currentUser.role === 'subscriber';
+  const canSeeCosts = isAdmin || isSubscriber;
+  const canSeeCommission = isAdmin || isSubscriber || currentUser.role === 'affiliate';
   const canManageCatalog = isAdmin || currentUser.role === 'production';
 
   // Filtered Products
@@ -98,6 +102,7 @@ export const ProductsCatalogModal: React.FC<ProductsCatalogModalProps> = ({
     setRawMaterialCost(prod.rawMaterialCost);
     setManufacturingCost(prod.manufacturingCost);
     setDefaultSellingPrice(prod.defaultSellingPrice);
+    setCommissionPct(prod.commissionPct != null ? String(prod.commissionPct) : '');
     setStockQuantity(prod.stockQuantity);
     setLowStockThreshold(prod.lowStockThreshold);
     setVariants(prod.variants || []);
@@ -114,6 +119,7 @@ export const ProductsCatalogModal: React.FC<ProductsCatalogModalProps> = ({
     setRawMaterialCost(150);
     setManufacturingCost(90);
     setDefaultSellingPrice(450);
+    setCommissionPct('');
     setStockQuantity(20);
     setVariants([]);
     setUseVariants(false);
@@ -150,6 +156,7 @@ export const ProductsCatalogModal: React.FC<ProductsCatalogModalProps> = ({
           rawMaterialCost: Number(rawMaterialCost),
           manufacturingCost: Number(manufacturingCost),
           defaultSellingPrice: Number(defaultSellingPrice),
+          commissionPct: commissionPct.trim() === '' ? null : Number(commissionPct),
           stockQuantity: finalStock,
           lowStockThreshold: Number(lowStockThreshold),
           variants: finalVariants,
@@ -166,6 +173,7 @@ export const ProductsCatalogModal: React.FC<ProductsCatalogModalProps> = ({
         rawMaterialCost: Number(rawMaterialCost),
         manufacturingCost: Number(manufacturingCost),
         defaultSellingPrice: Number(defaultSellingPrice),
+        commissionPct: commissionPct.trim() === '' ? null : Number(commissionPct),
         stockQuantity: finalStock,
         lowStockThreshold: Number(lowStockThreshold),
         variants: finalVariants,
@@ -355,6 +363,25 @@ export const ProductsCatalogModal: React.FC<ProductsCatalogModalProps> = ({
                 </div>
 
                 <div>
+                  <label
+                    className="text-[10px] font-bold text-slate-700 block mb-1"
+                    title="النسبة اللي ياخدها المسوّق من بيع هذا الصنف — اتركيها فاضية لو مفيش عمولة"
+                  >
+                    عمولة المسوّق (%) — اختياري:
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={0.5}
+                    value={commissionPct}
+                    onChange={(e) => setCommissionPct(e.target.value)}
+                    placeholder="مثال: 10"
+                    className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg font-mono font-bold text-slate-900"
+                  />
+                </div>
+
+                <div>
                   <label className="text-[10px] font-bold text-slate-700 block mb-1">
                     الكمية في المخزن: *
                   </label>
@@ -480,7 +507,7 @@ export const ProductsCatalogModal: React.FC<ProductsCatalogModalProps> = ({
               <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
                 <tr>
                   <th className="px-4 py-3">المنتج والبراند</th>
-                  {isAdmin && (
+                  {canSeeCosts && (
                     <>
                       <th className="px-3 py-3">سعر الخام</th>
                       <th className="px-3 py-3">تكلفة التصنيع الثابتة</th>
@@ -489,6 +516,7 @@ export const ProductsCatalogModal: React.FC<ProductsCatalogModalProps> = ({
                       <th className="px-3 py-3">المكسب المتوقع</th>
                     </>
                   )}
+                  {canSeeCommission && <th className="px-3 py-3">عمولة المسوّق</th>}
                   <th className="px-4 py-3 text-center">المخزون والكمية</th>
                   {isAdmin && <th className="px-4 py-3 text-left">إجراءات</th>}
                 </tr>
@@ -523,7 +551,7 @@ export const ProductsCatalogModal: React.FC<ProductsCatalogModalProps> = ({
                         )}
                       </td>
 
-                      {isAdmin && (
+                      {canSeeCosts && (
                         <>
                           <td className="px-3 py-3 font-mono font-bold text-amber-700">
                             {p.rawMaterialCost} ج.م
@@ -545,6 +573,12 @@ export const ProductsCatalogModal: React.FC<ProductsCatalogModalProps> = ({
                             +{unitProfit} ج.م
                           </td>
                         </>
+                      )}
+
+                      {canSeeCommission && (
+                        <td className="px-3 py-3 font-mono font-bold text-violet-700">
+                          {p.commissionPct != null ? `${p.commissionPct}%` : '—'}
+                        </td>
                       )}
 
                       {/* Stock with quick buttons */}

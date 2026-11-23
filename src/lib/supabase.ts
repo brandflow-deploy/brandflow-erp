@@ -47,6 +47,7 @@ export function normalizeLegacyRole(role: string): UserRole {
   if (role === 'production' || role === 'workshop') return 'production';
   if (role === 'shipping') return 'shipping';
   if (role === 'affiliate') return 'affiliate';
+  if (role === 'subscriber') return 'subscriber';
   return 'moderator';
 }
 
@@ -113,7 +114,7 @@ export async function fetchCurrentProfile(): Promise<{ profile: User | null; err
       if (ins.error) return { profile: null, error: ins.error };
       return { profile: bootstrap };
     }
-    return { profile: null, error: 'هذا الحساب غير مفعّل بعد. لو سجّلت جديداً كمسوّق فحسابك قيد مراجعة الإدارة وسيُفعّل بعد الموافقة، وإلا فراجع المدير العام.' };
+    return { profile: null, error: 'هذا الحساب موقوف حالياً. لو سجّلت جديداً فحسابك قيد مراجعة الإدارة، ولو كنت مشتركاً سابقاً فقد يكون الاشتراك منتهياً — تواصل مع الإدارة للتجديد.' };
   }
 
   return { profile: mapUserRow(data) };
@@ -164,6 +165,7 @@ export function mapProductRow(p: any): Product {
     defaultSellingPrice: Number(p.default_selling_price ?? 0),
     stockQuantity: Number(p.stock_quantity ?? 0),
     lowStockThreshold: Number(p.low_stock_threshold ?? 5),
+    commissionPct: p.commission_pct != null ? Number(p.commission_pct) : null,
     variants: Array.isArray(p.variants) ? p.variants : [],
     category: p.category || undefined,
     createdAt: p.created_at,
@@ -181,6 +183,7 @@ export function productToRow(p: Product) {
     default_selling_price: p.defaultSellingPrice,
     stock_quantity: p.stockQuantity,
     low_stock_threshold: p.lowStockThreshold,
+    commission_pct: p.commissionPct ?? null,
     variants: p.variants || [],
     category: p.category || null,
     created_at: p.createdAt,

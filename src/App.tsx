@@ -295,7 +295,7 @@ export default function App() {
       if (activeTab === 'catalog' || activeTab === 'audit' || activeTab === 'settings') {
         setActiveTab('dashboard');
       }
-    } else if (effectiveUser.role === 'affiliate') {
+    } else if (effectiveUser.role === 'affiliate' || effectiveUser.role === 'subscriber') {
       if (activeTab === 'audit' || activeTab === 'settings') {
         setActiveTab('dashboard');
       }
@@ -866,6 +866,8 @@ export default function App() {
   const isModerator = effectiveUser.role === 'moderator';
   const isShipping = effectiveUser.role === 'shipping';
   const isAffiliate = effectiveUser.role === 'affiliate';
+  const isSubscriber = effectiveUser.role === 'subscriber';
+  const isExternal = isAffiliate || isSubscriber;
   const canEditStock = isAdmin || effectiveUser.role === 'production';
 
   return (
@@ -917,7 +919,7 @@ export default function App() {
 
       {/* Main Viewport Container */}
       <main className="no-print flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {activeTab === 'dashboard' && (isAdmin || isModerator || isAffiliate) && (
+        {activeTab === 'dashboard' && (isAdmin || isModerator || isAffiliate || isSubscriber) && (
           <DashboardView
             orders={visibleOrders}
             brands={visibleBrands}
@@ -948,6 +950,7 @@ export default function App() {
           <OrdersListView
             orders={visibleOrders}
             brands={visibleBrands}
+            products={visibleProducts}
             currentUser={effectiveUser}
             currency={currentCurrency}
             selectedStatusFilter={selectedStatusFilter}
@@ -970,7 +973,7 @@ export default function App() {
         )}
 
         {/* BRANDS TAB (Admin: Full Edit | Moderator: Read-Only) */}
-        {activeTab === 'brands' && (isAdmin || isModerator || isAffiliate) && (
+        {activeTab === 'brands' && (isAdmin || isModerator || isAffiliate || isSubscriber) && (
           <div className="space-y-4">
             <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
@@ -1099,9 +1102,11 @@ export default function App() {
                   <span>
                     {isAdmin
                       ? 'كتالوج المنتجات وتكاليف التصنيع والمخزون'
-                      : isAffiliate
-                        ? 'منتجات براندك وأرصدة المخزون (عرض فقط)'
-                        : 'التصنيع والمخزن — إدارة الأرصدة والكميات'}
+                      : isSubscriber
+                        ? 'منتجات براندك وتكلفتها وأرصدة المخزون'
+                        : isAffiliate
+                          ? 'منتجات براندك وأرصدة المخزون (عرض فقط)'
+                          : 'التصنيع والمخزن — إدارة الأرصدة والكميات'}
                   </span>
                   <span className="text-xs font-mono text-sky-700 font-bold">
                     ({visibleProducts.length} صنف)
@@ -1110,9 +1115,11 @@ export default function App() {
                 <p className="text-xs text-slate-500 mt-1">
                   {isAdmin
                     ? 'تعديل تكاليف الخامات والتصنيع وإدارة أرصدة المخزون لكل صنف'
-                    : isAffiliate
-                      ? 'متابعة الكميات المتاحة من منتجاتك بالمخزن وتنبيهات انخفاض الكمية'
-                      : 'تحديث أرصدة المخزون الفعلي ومتابعة تنبيهات انخفاض الكمية للأصناف قيد التجهيز'}
+                    : isSubscriber
+                      ? 'متابعة تكلفة كل صنف والكميات المتاحة من منتجاتك بالمخزن'
+                      : isAffiliate
+                        ? 'متابعة الكميات المتاحة من منتجاتك بالمخزن وتنبيهات انخفاض الكمية'
+                        : 'تحديث أرصدة المخزون الفعلي ومتابعة تنبيهات انخفاض الكمية للأصناف قيد التجهيز'}
                 </p>
               </div>
               <button
@@ -1160,7 +1167,7 @@ export default function App() {
                       )}
                     </div>
 
-                    {isAdmin && (
+                    {(isAdmin || isSubscriber) && (
                       <div className="grid grid-cols-2 gap-2 text-[11px] font-mono text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
                         <div>
                           سعر الخام: <b className="text-amber-700">{prod.rawMaterialCost}</b> ج.م
@@ -1174,6 +1181,14 @@ export default function App() {
                         <div>
                           مكسب القطعة: <b className="text-emerald-600 font-bold">+{unitProfit}</b> ج.م
                         </div>
+                      </div>
+                    )}
+
+                    {prod.commissionPct != null && (isAdmin || isExternal) && (
+                      <div className="text-[11px] font-bold text-violet-700 bg-violet-50 border border-violet-200 rounded-lg px-2.5 py-1.5">
+                        {isAffiliate ? 'عمولتك' : 'عمولة المسوّق'}: {prod.commissionPct}% (
+                        {((prod.defaultSellingPrice * prod.commissionPct) / 100).toFixed(0)} ج.م
+                        للقطعة)
                       </div>
                     )}
 

@@ -37,6 +37,7 @@ const ROLE_LABELS: Record<UserRole, string> = {
   production: 'مسؤول تصنيع ومخزن',
   shipping: 'مسؤول شحن',
   affiliate: 'مسوّق بالعمولة',
+  subscriber: 'عميل مشترك',
 };
 
 const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
@@ -44,7 +45,8 @@ const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
   moderator: 'الأوردرات والرئيسية بدون أرباح، البراندات للعرض فقط',
   production: 'التصنيع والمخزن وأوردرات التجهيز فقط',
   shipping: 'أوردرات الشحن والتسليم للبراندات المحددة فقط، بدون أرباح أو تكاليف',
-  affiliate: 'براند واحد خاص به: يسجّل أوردراته ويتابعها ويرى منتجاته ومخزونها، بدون أرباح أو تكاليف',
+  affiliate: 'براند واحد خاص به: يسجّل أوردراته ويتابعها ويرى منتجاته ومخزونها وعمولته، بدون تكاليف',
+  subscriber: 'براند واحد خاص به مثل المسوّق، لكن يرى تكاليف منتجاته وأوردراته ومكسبه منها',
 };
 
 async function adminHeaders(): Promise<Record<string, string>> {
@@ -84,6 +86,24 @@ export const TeamSettingsView: React.FC<TeamSettingsViewProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importMessage, setImportMessage] = useState<string | null>(null);
   const [cloudStatus, setCloudStatus] = useState<string | null>(null);
+  const [pendingRoles, setPendingRoles] = useState<Record<string, UserRole>>({});
+
+  // الموافقة على حساب معلّق مع تحديد نوعه (مسوّق بالعمولة أو عميل مشترك)
+  const handleApprove = async (u: User) => {
+    const chosenRole = pendingRoles[u.id] || u.role;
+    const headers = await adminHeaders();
+    const res = await fetch(`/api/admin/users/${u.id}`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ isActive: true, role: chosenRole }),
+    });
+    if (res.ok) {
+      onProfileSaved({ ...u, isActive: true, role: chosenRole });
+    } else {
+      const body = await res.json().catch(() => ({}));
+      window.alert(body.error || 'فشل تفعيل المستخدم');
+    }
+  };
 
   const resetForm = () => {
     setEditingId(null);
@@ -323,9 +343,20 @@ export const TeamSettingsView: React.FC<TeamSettingsViewProps> = ({
                         {accessLabel}
                       </p>
                     )}
-                    <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+                    <div className="flex items-center gap-2 pt-1 border-t border-slate-100 flex-wrap">
+                      <select
+                        aria-label="نوع الحساب"
+                        value={pendingRoles[u.id] || u.role}
+                        onChange={(e) =>
+                          setPendingRoles((prev) => ({ ...prev, [u.id]: e.target.value as UserRole }))
+                        }
+                        className="px-2 py-1.5 text-[11px] font-bold text-slate-700 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      >
+                        <option value="affiliate">مسوّق بالعمولة</option>
+                        <option value="subscriber">عميل مشترك</option>
+                      </select>
                       <button
-                        onClick={() => handleToggleActive(u)}
+                        onClick={() => handleApprove(u)}
                         className="px-3 py-1.5 text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors flex items-center gap-1"
                       >
                         <CheckCircle2 className="w-3 h-3" />

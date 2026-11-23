@@ -11,13 +11,14 @@ import {
   CheckSquare,
   Square,
 } from 'lucide-react';
-import { Order, Brand, OrderStatus, User, CurrencyConfig } from '../types';
+import { Order, Brand, OrderStatus, User, CurrencyConfig, Product } from '../types';
 import { exportOrdersToCSV, exportOrdersToExcel } from '../utils/excel';
 import { formatCurrency } from '../utils/calculations';
 
 interface OrdersListViewProps {
   orders: Order[];
   brands: Brand[];
+  products: Product[];
   currentUser: User;
   currency: CurrencyConfig;
   selectedStatusFilter: string;
@@ -35,6 +36,7 @@ interface OrdersListViewProps {
 export const OrdersListView: React.FC<OrdersListViewProps> = ({
   orders,
   brands,
+  products,
   currentUser,
   currency,
   selectedStatusFilter,
@@ -55,11 +57,27 @@ export const OrdersListView: React.FC<OrdersListViewProps> = ({
   const isAdmin = currentUser.role === 'admin';
   const isProduction = currentUser.role === 'production';
   const isShipping = currentUser.role === 'shipping';
-  const canViewFinancials = isAdmin;
-  const canCreateOrders = isAdmin || currentUser.role === 'moderator' || currentUser.role === 'affiliate';
+  const isSubscriber = currentUser.role === 'subscriber';
+  const isAffiliate = currentUser.role === 'affiliate';
+  const canViewFinancials = isAdmin || isSubscriber;
+  const canViewCommission = isAdmin || isAffiliate;
+  const columnCount = 8 + (canViewFinancials ? 1 : 0) + (canViewCommission ? 1 : 0);
+  const canCreateOrders = isAdmin || currentUser.role === 'moderator' || isAffiliate || isSubscriber;
   const canDelete = isAdmin;
   // مسؤول الشحن: لا ينشئ ولا يعدّل بيانات الأوردر، يحدّث حالات الشحن والتسليم ويطبع البوالص فقط
   const canEditOrders = !isProduction && !isShipping;
+
+  // عمولة المسوّق للأوردر: مجموع (نسبة عمولة الصنف × إجمالي بيع السطر)
+  const orderCommission = (order: Order): number => {
+    let sum = 0;
+    for (const item of order.items || []) {
+      const prod = item.productId ? products.find((p) => p.id === item.productId) : undefined;
+      if (prod?.commissionPct != null) {
+        sum += (item.totalSellingPrice * prod.commissionPct) / 100;
+      }
+    }
+    return sum;
+  };
 
   // Production only sees manufacturing & ready_to_ship orders
   const roleScopedOrders = useMemo(() => {
@@ -381,6 +399,7 @@ export const OrdersListView: React.FC<OrdersListViewProps> = ({
                 {canViewFinancials && (
                   <th className="px-4 py-3.5">التكلفة وصافي المكسب</th>
                 )}
+                {canViewCommission && <th className="px-4 py-3.5">العمولة</th>}
                 <th className="px-4 py-3.5">حالة الأوردر</th>
                 <th className="px-4 py-3.5 text-left">إجراءات</th>
               </tr>
@@ -389,7 +408,7 @@ export const OrdersListView: React.FC<OrdersListViewProps> = ({
               {filteredOrders.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={canViewFinancials ? 9 : 8}
+                    colSpan={columnCount}
                     className="py-12 text-center text-slate-400"
                   >
                     <p className="text-sm font-semibold">لا توجد أوردرات مطابقة للتصفية</p>
@@ -501,6 +520,14 @@ export const OrdersListView: React.FC<OrdersListViewProps> = ({
                           </div>
                           <div className="text-[10px] text-slate-400 font-mono">
                             خام: {order.totalRawCost} · تصنيع: {order.totalManufacturingCost}
+                          </div>
+                        </td>
+                      )}
+
+                      {canViewCommission && (
+                        <td className="px-4 py-3">
+                          <div className="font-mono tabular-nums font-bold text-violet-700 text-xs">
+                            {formatCurrency(orderCommission(order), currency)}
                           </div>
                         </td>
                       )}

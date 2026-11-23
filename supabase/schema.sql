@@ -28,6 +28,7 @@ create table if not exists public.products (
   default_selling_price numeric not null default 0,
   stock_quantity integer not null default 0,
   low_stock_threshold integer not null default 5,
+  commission_pct numeric,             -- نسبة عمولة المسوّق لهذا الصنف (تضبطها الإدارة)
   variants jsonb not null default '[]'::jsonb, -- متغيرات المقاس/اللون بمخزون مستقل
   category text,
   created_at timestamptz not null default now()
@@ -70,7 +71,7 @@ create table if not exists public.team_users (
   id uuid primary key references auth.users(id) on delete cascade,
   name text not null,
   email text not null unique,
-  role text not null check (role in ('admin', 'moderator', 'production', 'shipping', 'affiliate')),
+  role text not null check (role in ('admin', 'moderator', 'production', 'shipping', 'affiliate', 'subscriber')),
   avatar text,
   is_active boolean not null default true,
   is_owner boolean not null default false,
