@@ -427,6 +427,35 @@ export default function App() {
     });
   };
 
+  // حفظ أوردر جديد مع إعادة المحاولة برقم تالٍ عند تعارض رقم الأوردر
+  // (أرقام الأوردرات تُحسب من الأوردرات المرئية للمستخدم، وقد يتعارض الرقم مع براند آخر لا يراه)
+  const bumpOrderNumber = (num: string) => {
+    const m = num.match(/^(.*?)(\d+)$/);
+    return m ? `${m[1]}${Number(m[2]) + 1}` : `${num}-1`;
+  };
+
+  const persistOrderWithNumberRetry = async (order: Order) => {
+    let attempt = order;
+    for (let i = 0; i < 6; i++) {
+      const r = await store.upsertOrder(attempt);
+      if (r.ok) {
+        if (attempt.orderNumber !== order.orderNumber) {
+          setOrders((prev) =>
+            prev.map((o) => (o.id === order.id ? { ...o, orderNumber: attempt.orderNumber } : o))
+          );
+          showToast(`رقم الأوردر (${order.orderNumber}) كان مستخدماً، فسُجّل برقم (${attempt.orderNumber})`);
+        }
+        return;
+      }
+      if (!/duplicate|unique|order_number|orders_order_number_key/i.test(r.error || '')) {
+        reportSave(r, `الأوردر ${order.orderNumber}`);
+        return;
+      }
+      attempt = { ...attempt, orderNumber: bumpOrderNumber(attempt.orderNumber) };
+    }
+    reportSave({ ok: false, error: 'تعارض في رقم الأوردر بعد عدة محاولات' }, `الأوردر ${order.orderNumber}`);
+  };
+
   // ===================== معالجات الأوردرات =====================
   const handleSaveOrder = (savedOrder: Order) => {
     const existing = orders.find((o) => o.id === savedOrder.id);
@@ -487,7 +516,11 @@ export default function App() {
       showToast(`تم تسجيل الأوردر الجديد (${finalOrder.orderNumber}) في النظام بنجاح`);
     }
 
-    store.upsertOrder(finalOrder).then((r) => reportSave(r, `الأوردر ${finalOrder.orderNumber}`));
+    if (existing) {
+      store.upsertOrder(finalOrder).then((r) => reportSave(r, `الأوردر ${finalOrder.orderNumber}`));
+    } else {
+      persistOrderWithNumberRetry(finalOrder);
+    }
     appendLogs(logsToAdd);
   };
 
@@ -513,9 +546,7 @@ export default function App() {
     persistProductsDiff(products, workingProducts);
     setProducts(workingProducts);
     setOrders((prev) => [...processedOrders, ...prev]);
-    processedOrders.forEach((o) =>
-      store.upsertOrder(o).then((r) => reportSave(r, `الأوردر ${o.orderNumber}`))
-    );
+    processedOrders.forEach((o) => persistOrderWithNumberRetry(o));
     logsToAdd.unshift(
       buildLog(
         'استيراد أوردرات ذكي',
