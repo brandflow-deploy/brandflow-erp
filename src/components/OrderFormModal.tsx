@@ -264,6 +264,8 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
     const totalSellingPrice = (it.unitPrice || 0) * (it.quantity || 1);
     const totalItemCost =
       ((it.rawMaterialCost || 0) + (it.manufacturingCost || 0)) * (it.quantity || 1);
+    // نثبت نسبة عمولة المسوّق على السطر وقت حفظ الأوردر حتى لا تتأثر الأوردرات القديمة بتعديل الصنف لاحقاً
+    const prod = it.productId ? catalogProducts.find((p) => p.id === it.productId) : undefined;
     return {
       id: it.id,
       productId: it.productId,
@@ -276,6 +278,7 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
       rawMaterialCost: it.rawMaterialCost,
       manufacturingCost: it.manufacturingCost,
       totalSellingPrice,
+      commissionPct: prod?.commissionPct ?? null,
       totalItemCost,
       itemProfit: totalSellingPrice - totalItemCost,
     };

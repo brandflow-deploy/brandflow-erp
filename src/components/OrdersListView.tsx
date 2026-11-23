@@ -67,13 +67,16 @@ export const OrdersListView: React.FC<OrdersListViewProps> = ({
   // مسؤول الشحن: لا ينشئ ولا يعدّل بيانات الأوردر، يحدّث حالات الشحن والتسليم ويطبع البوالص فقط
   const canEditOrders = !isProduction && !isShipping;
 
-  // عمولة المسوّق للأوردر: مجموع (نسبة عمولة الصنف × إجمالي بيع السطر)
+  // عمولة المسوّق للأوردر: نسبة مثبتة على كل سطر وقت إنشائه؛ للأوردرات الأقدم نرجع لنسبة الصنف الحالية
   const orderCommission = (order: Order): number => {
     let sum = 0;
     for (const item of order.items || []) {
-      const prod = item.productId ? products.find((p) => p.id === item.productId) : undefined;
-      if (prod?.commissionPct != null) {
-        sum += (item.totalSellingPrice * prod.commissionPct) / 100;
+      let pct = item.commissionPct;
+      if (pct == null && item.productId) {
+        pct = products.find((p) => p.id === item.productId)?.commissionPct ?? null;
+      }
+      if (pct != null) {
+        sum += (item.totalSellingPrice * pct) / 100;
       }
     }
     return sum;
@@ -399,7 +402,11 @@ export const OrdersListView: React.FC<OrdersListViewProps> = ({
                 {canViewFinancials && (
                   <th className="px-4 py-3.5">التكلفة وصافي المكسب</th>
                 )}
-                {canViewCommission && <th className="px-4 py-3.5">العمولة</th>}
+                {canViewCommission && (
+                  <th className="px-4 py-3.5" title="العمولة تقديرية وليست مستحقة الصرف إلا بعد تأكيد التسليم وقواعد المرتجعات">
+                    العمولة (تقديرية)
+                  </th>
+                )}
                 <th className="px-4 py-3.5">حالة الأوردر</th>
                 <th className="px-4 py-3.5 text-left">إجراءات</th>
               </tr>
@@ -529,6 +536,7 @@ export const OrdersListView: React.FC<OrdersListViewProps> = ({
                           <div className="font-mono tabular-nums font-bold text-violet-700 text-xs">
                             {formatCurrency(orderCommission(order), currency)}
                           </div>
+                          <div className="text-[9px] text-slate-400">تقديرية — تُؤكَّد بعد التسليم والمرتجعات</div>
                         </td>
                       )}
 

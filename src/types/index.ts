@@ -66,6 +66,7 @@ export interface OrderItem {
   rawMaterialCost: number;     // تكلفة القطعة قبل التصنيع وقت الطلب
   manufacturingCost: number;   // تكلفة التصنيع للقطعة وقت الطلب
   totalSellingPrice: number;   // unitPrice * quantity
+  commissionPct?: number | null; // نسبة عمولة المسوّق المثبتة على الأوردر وقت إنشائه (لا تتغير بتعديل الصنف لاحقاً)
   totalItemCost: number;       // (rawMaterialCost + manufacturingCost) * quantity
   itemProfit: number;          // totalSellingPrice - totalItemCost
 }

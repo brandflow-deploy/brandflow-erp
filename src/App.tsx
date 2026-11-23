@@ -169,6 +169,23 @@ export default function App() {
         if (mounted) setAuthReady(true);
       });
 
+      // إعادة فحص دورية: لو الإدارة عطّلت الحساب وهو لسه مفتوح، ننهي الجلسة فوراً
+      const revalidate = async () => {
+        const { data } = await supabase!.auth.getSession();
+        if (!data.session || !mounted) return;
+        const { profile } = await fetchCurrentProfile();
+        if (!mounted) return;
+        if (!profile || profile.isActive === false) {
+          setProfileError(
+            'تم إيقاف هذا الحساب من الإدارة. لو كنت مشتركاً سابقاً فقد يكون الاشتراك منتهياً — تواصل مع الإدارة للتجديد.'
+          );
+          await signOut();
+          setCurrentUser(null);
+        }
+      };
+      const revalidateTimer = window.setInterval(revalidate, 60_000);
+      window.addEventListener('focus', revalidate);
+
       const sub = onAuthStateChange((hasSession) => {
         if (hasSession) {
           loadProfile();
@@ -176,7 +193,11 @@ export default function App() {
           setCurrentUser(null);
         }
       });
-      unsubscribe = sub.unsubscribe;
+      unsubscribe = () => {
+        window.clearInterval(revalidateTimer);
+        window.removeEventListener('focus', revalidate);
+        sub.unsubscribe();
+      };
     };
 
     // نجهز إعدادات Supabase (من السيرفر وقت التشغيل إن لزم) قبل بدء الجلسة
@@ -1188,7 +1209,7 @@ export default function App() {
                       <div className="text-[11px] font-bold text-violet-700 bg-violet-50 border border-violet-200 rounded-lg px-2.5 py-1.5">
                         {isAffiliate ? 'عمولتك' : 'عمولة المسوّق'}: {prod.commissionPct}% (
                         {((prod.defaultSellingPrice * prod.commissionPct) / 100).toFixed(0)} ج.م
-                        للقطعة)
+                        للقطعة) — تقديرية تُؤكَّد بعد التسليم
                       </div>
                     )}
 
