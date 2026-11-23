@@ -12,6 +12,7 @@ import {
   Download,
 } from 'lucide-react';
 import { Order, Brand, CurrencyConfig, User } from '../types';
+import { API_BASE } from '../lib/api';
 import { computeDashboardMetrics, formatCurrency } from '../utils/calculations';
 
 interface DashboardViewProps {
@@ -156,7 +157,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <a
-              href="/api/download-project-zip"
+              href={`${API_BASE}/api/download-project-zip`}
               download="brandflow-erp-project.zip"
               className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold transition-colors whitespace-nowrap flex items-center gap-1.5"
             >

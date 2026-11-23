@@ -6,3 +6,6 @@ coverage/
 *.log
 .env*
 !.env.example
+dist-mirror/
+dist-pages/
+supabase/.temp/
