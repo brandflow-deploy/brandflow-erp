@@ -54,12 +54,70 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
     }[]
   >([]);
 
+  // مفتاح مسودة الأوردر الجديد لهذا المستخدم على هذا الجهاز
+  const draftKey = `orderFormDraft:${currentUser.id}`;
+
+  const clearDraft = () => {
+    try {
+      localStorage.removeItem(draftKey);
+    } catch {
+      /* لا شيء */
+    }
+  };
+
+  // حفظ تلقائي للمسودة أثناء الكتابة: أي إغلاق أو تحديث مفاجئ للصفحة لا يضيّع المدخلات
+  useEffect(() => {
+    if (!isOpen || orderToEdit) return;
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem(
+          draftKey,
+          JSON.stringify({
+            brandId,
+            customerName,
+            customerPhone,
+            customerPhone2,
+            city,
+            customerAddress,
+            status,
+            notes,
+            customerShipping,
+            actualShippingCost,
+            extraExpenses,
+            items,
+          })
+        );
+      } catch {
+        /* لا شيء */
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [
+    isOpen,
+    orderToEdit,
+    draftKey,
+    brandId,
+    customerName,
+    customerPhone,
+    customerPhone2,
+    city,
+    customerAddress,
+    status,
+    notes,
+    customerShipping,
+    actualShippingCost,
+    extraExpenses,
+    items,
+  ]);
+
   const canViewFinancials = currentUser.role === 'admin';
   const isProduction = currentUser.role === 'production';
   // مسؤول الشحن يعرض تفاصيل الأوردر فقط دون تعديل
   const isReadOnlyRole = isProduction || currentUser.role === 'shipping';
 
+  // تهيئة النموذج عند فتحه فقط — تحديث قوائم البراندات/المنتجات أثناء الكتابة لا يمسحها
   useEffect(() => {
+    if (!isOpen) return;
     setFormError(null);
     if (orderToEdit) {
       setBrandId(orderToEdit.brandId);
@@ -88,6 +146,33 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
         }))
       );
     } else {
+      // استرجاع مسودة محفوظة من جلسة سابقة (تحديث الصفحة أو إغلاقها لا يفقدها)
+      let draft: any = null;
+      try {
+        draft = JSON.parse(localStorage.getItem(draftKey) || 'null');
+      } catch {
+        draft = null;
+      }
+      if (draft && typeof draft === 'object') {
+        const draftBrandOk = brands.some((b) => b.id === draft.brandId);
+        setBrandId(draftBrandOk ? draft.brandId : brands[0]?.id || '');
+        setCustomerName(String(draft.customerName || ''));
+        setCustomerPhone(String(draft.customerPhone || ''));
+        setCustomerPhone2(String(draft.customerPhone2 || ''));
+        setCity(String(draft.city || 'القاهرة'));
+        setCustomerAddress(String(draft.customerAddress || ''));
+        setStatus(draft.status || 'manufacturing');
+        setNotes(String(draft.notes || ''));
+        setCustomerShipping(
+          Number(draft.customerShipping ?? brands[0]?.defaultCustomerShipping ?? 65)
+        );
+        setActualShippingCost(
+          Number(draft.actualShippingCost ?? brands[0]?.defaultActualShipping ?? 55)
+        );
+        setExtraExpenses(Number(draft.extraExpenses ?? 0));
+        setItems(Array.isArray(draft.items) ? draft.items : []);
+        return;
+      }
       const defaultBrand = brands[0];
       setBrandId(defaultBrand?.id || '');
       setCustomerName('');
@@ -119,7 +204,8 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
         setItems([]);
       }
     }
-  }, [orderToEdit, isOpen, brands, catalogProducts]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderToEdit, isOpen]);
 
   if (!isOpen) return null;
 
@@ -261,6 +347,7 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
       updatedBy: orderToEdit ? currentUser.name : undefined,
     };
 
+    clearDraft();
     onSaveOrder(finalOrder);
     onClose();
   };
@@ -289,6 +376,30 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
               >
                 <Printer className="w-4 h-4" />
                 <span>طباعة بوليصة</span>
+              </button>
+            )}
+            {!orderToEdit && (
+              <button
+                type="button"
+                onClick={() => {
+                  clearDraft();
+                  const defaultBrand = brands[0];
+                  setBrandId(defaultBrand?.id || '');
+                  setCustomerName('');
+                  setCustomerPhone('');
+                  setCustomerPhone2('');
+                  setCity('القاهرة');
+                  setCustomerAddress('');
+                  setStatus('manufacturing');
+                  setNotes('');
+                  setCustomerShipping(defaultBrand ? defaultBrand.defaultCustomerShipping : 65);
+                  setActualShippingCost(defaultBrand ? defaultBrand.defaultActualShipping : 55);
+                  setExtraExpenses(0);
+                  setItems([]);
+                }}
+                className="px-3 py-1.5 text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+              >
+                مسح الحقول
               </button>
             )}
             <button

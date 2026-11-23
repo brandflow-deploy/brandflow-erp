@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   X, 
   Sparkles, 
@@ -36,11 +36,35 @@ export const SmartOrderModal: React.FC<SmartOrderModalProps> = ({
   onSaveOrders,
   nextOrderNumber,
 }) => {
-  const [rawText, setRawText] = useState('');
+  // مسودة الاستيراد الذكي تُحفظ على الجهاز حتى لا تضيع مع أي تحديث مفاجئ للصفحة
+  const draftKey = `smartOrderDraft:${currentUser.id}`;
+  const loadDraft = () => {
+    try {
+      return JSON.parse(localStorage.getItem(draftKey) || 'null');
+    } catch {
+      return null;
+    }
+  };
+  const [rawText, setRawText] = useState(() => loadDraft()?.rawText || '');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [parsedCandidates, setParsedCandidates] = useState<ParsedOrderCandidate[]>([]);
-  const [activeStep, setActiveStep] = useState<'input' | 'review'>('input');
+  const [parsedCandidates, setParsedCandidates] = useState<ParsedOrderCandidate[]>(
+    () => (Array.isArray(loadDraft()?.parsedCandidates) ? loadDraft().parsedCandidates : [])
+  );
+  const [activeStep, setActiveStep] = useState<'input' | 'review'>(() =>
+    loadDraft()?.activeStep === 'review' ? 'review' : 'input'
+  );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem(draftKey, JSON.stringify({ rawText, parsedCandidates, activeStep }));
+      } catch {
+        /* لا شيء */
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [draftKey, rawText, parsedCandidates, activeStep]);
 
   if (!isOpen) return null;
 
@@ -446,6 +470,14 @@ export const SmartOrderModal: React.FC<SmartOrderModalProps> = ({
       });
     });
 
+    try {
+      localStorage.removeItem(draftKey);
+    } catch {
+      /* لا شيء */
+    }
+    setRawText('');
+    setParsedCandidates([]);
+    setActiveStep('input');
     onSaveOrders(finalOrders);
     onClose();
   };
