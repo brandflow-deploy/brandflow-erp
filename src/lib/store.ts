@@ -2,6 +2,7 @@ import { AuditLog, Brand, Order, Product, User } from '../types';
 import {
   brandToRow,
   getAccessToken,
+  initSupabaseRuntime,
   isSupabaseConfigured,
   logToRow,
   orderToRow,
@@ -77,7 +78,9 @@ async function sbCall(fn: () => PromiseLike<{ error: any }>): Promise<StoreResul
 // طبقة الحفظ: كل تعديل يُحفظ فوراً وبشكل مستقل لقاعدة البيانات.
 // في وضع التطوير المحلي (بدون Supabase) يُحفظ مساحة العمل كاملة في db.json.
 export function createDataStore(getState: () => WorkspacePayload) {
-  const useSupabase = isSupabaseConfigured();
+  // يُحسم وضع التخزين عند كل عملية حفظ وليس عند إنشاء المخزن:
+  // على المرآة تصل إعدادات Supabase من /api/public-config بعد أول رسم للصفحة،
+  // فلو حُسم الوضع مبكراً لعلق المخزن في وضع التطوير وضاعت الحفظات.
   let devTimer: ReturnType<typeof setTimeout> | null = null;
   let devResolvers: Array<(r: StoreResult) => void> = [];
 
@@ -94,12 +97,15 @@ export function createDataStore(getState: () => WorkspacePayload) {
   };
 
   const save = (op: () => Promise<StoreResult>): Promise<StoreResult> => {
-    if (useSupabase) return op();
-    return devSave();
+    if (isSupabaseConfigured()) return op();
+    // الإعدادات قد تكون ما زالت تُجلب من السيرفر؛ ننتظرها قبل الحكم بالوضع المحلي
+    return initSupabaseRuntime().then(() => (isSupabaseConfigured() ? op() : devSave()));
   };
 
+  const isSupaMode = () => isSupabaseConfigured();
+
   return {
-    mode: useSupabase ? ('supabase' as const) : ('dev' as const),
+    mode: isSupaMode() ? ('supabase' as const) : ('dev' as const),
 
     upsertBrand: (b: Brand) =>
       save(() => sbCall(() => supabase!.from('brands').upsert(brandToRow(b), { onConflict: 'id' }))),
