@@ -29,6 +29,17 @@ export interface ShippingCompany {
   createdAt: string;
 }
 
+// ربط موقع/متجر خارجي بحساب مستخدم — مفتاح API يستقبل الأوردرات عبر webhook
+export interface WebsiteConnection {
+  id: string;
+  ownerId: string;             // معرّف المستخدم صاحب الحساب (auth.users uuid)
+  brandId: string;             // البراند الذي تُسجَّل عليه أوردرات الموقع
+  label?: string;              // اسم مميز للموقع (اختياري)
+  apiKey: string;              // مفتاح الربط السري (يُرسل في ترويسة x-api-key)
+  isActive: boolean;
+  createdAt: string;
+}
+
 export interface Brand {
   id: string;
   name: string;
@@ -127,6 +138,7 @@ export interface User {
   isOwner?: boolean;           // true for system owner
   createdAt?: string;
   brandsAccess?: string[];     // ['all'] أو قائمة معرفات براندات محددة يحق له رؤيتها
+  subscriptionEndsAt?: string | null; // تاريخ انتهاء الاشتراك اليدوي للعميل المشترك (يتوقف الحساب تلقائياً بعده)
 }
 
 export interface AuditLog {

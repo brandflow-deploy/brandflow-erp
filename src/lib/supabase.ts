@@ -269,6 +269,7 @@ export function mapUserRow(u: any): User {
     isOwner: Boolean(u.is_owner ?? false),
     createdAt: u.created_at,
     brandsAccess: Array.isArray(u.brands_access) && u.brands_access.length > 0 ? u.brands_access : ['all'],
+    subscriptionEndsAt: u.subscription_ends_at || null,
   };
 }
 
@@ -283,6 +284,7 @@ export function userToRow(u: User) {
     is_owner: Boolean(u.isOwner),
     brands_access: u.brandsAccess && u.brandsAccess.length > 0 ? u.brandsAccess : ['all'],
     created_at: u.createdAt || new Date().toISOString(),
+    subscription_ends_at: u.subscriptionEndsAt ?? null,
   };
 }
 

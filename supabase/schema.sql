@@ -278,3 +278,25 @@ create policy "owner manages own shipping companies" on public.shipping_companie
 
 grant select, insert, update, delete on public.shipping_companies to authenticated;
 grant all on public.shipping_companies to service_role;
+-- 9) الاشتراكات اليدوية + ربط المواقع
+alter table public.team_users add column if not exists subscription_ends_at timestamptz;
+
+create table if not exists public.website_connections (
+  id text primary key,
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  brand_id text not null references public.brands(id) on delete cascade,
+  label text,
+  api_key text not null unique,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+alter table public.website_connections enable row level security;
+
+create policy "owner manages own website connections" on public.website_connections
+  for all to authenticated
+  using (owner_id = auth.uid())
+  with check (owner_id = auth.uid());
+
+grant select, insert, update, delete on public.website_connections to authenticated;
+grant all on public.website_connections to service_role;

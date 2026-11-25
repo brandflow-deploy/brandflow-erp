@@ -83,6 +83,7 @@ export const TeamSettingsView: React.FC<TeamSettingsViewProps> = ({
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [role, setRole] = useState<UserRole>('moderator');
+  const [subEndsAt, setSubEndsAt] = useState<string>(''); // تاريخ انتهاء اشتراك العميل المشترك (yyyy-mm-dd أو فارغ)
   const [allBrands, setAllBrands] = useState(true);
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [formError, setFormError] = useState<string | null>(null);
@@ -121,6 +122,7 @@ export const TeamSettingsView: React.FC<TeamSettingsViewProps> = ({
     setEmail('');
     setPassword('');
     setRole('moderator');
+    setSubEndsAt('');
     setAllBrands(true);
     setSelectedBrands([]);
     setFormError(null);
@@ -133,6 +135,7 @@ export const TeamSettingsView: React.FC<TeamSettingsViewProps> = ({
     setEmail(u.email);
     setPassword('');
     setRole(u.role);
+    setSubEndsAt(u.subscriptionEndsAt ? u.subscriptionEndsAt.slice(0, 10) : '');
     const access = u.brandsAccess || ['all'];
     setAllBrands(access.includes('all'));
     setSelectedBrands(access.filter((b) => b !== 'all'));
@@ -181,6 +184,9 @@ export const TeamSettingsView: React.FC<TeamSettingsViewProps> = ({
             role,
             brandsAccess,
             ...(password ? { password } : {}),
+            ...(role === 'subscriber'
+              ? { subscriptionEndsAt: subEndsAt ? new Date(`${subEndsAt}T23:59:59`).toISOString() : null }
+              : {}),
           }),
         });
         const body = await res.json().catch(() => ({}));
@@ -191,7 +197,15 @@ export const TeamSettingsView: React.FC<TeamSettingsViewProps> = ({
         }
         const existing = users.find((u) => u.id === editingId);
         if (existing) {
-          onProfileSaved({ ...existing, name: cleanName, role, brandsAccess });
+          onProfileSaved({
+            ...existing,
+            name: cleanName,
+            role,
+            brandsAccess,
+            ...(role === 'subscriber'
+              ? { subscriptionEndsAt: subEndsAt ? new Date(`${subEndsAt}T23:59:59`).toISOString() : null }
+              : {}),
+          });
         }
       } else {
         const res = await fetch('/api/admin/users', {
@@ -212,6 +226,15 @@ export const TeamSettingsView: React.FC<TeamSettingsViewProps> = ({
           return;
         }
         if (body.user) {
+          let subscriptionEndsAt: string | null = null;
+          if (role === 'subscriber' && subEndsAt) {
+            subscriptionEndsAt = new Date(`${subEndsAt}T23:59:59`).toISOString();
+            await fetch(`/api/admin/users/${body.user.id}`, {
+              method: 'PATCH',
+              headers,
+              body: JSON.stringify({ subscriptionEndsAt }),
+            }).catch(() => undefined);
+          }
           onProfileSaved({
             id: body.user.id,
             name: body.user.name,
@@ -221,6 +244,7 @@ export const TeamSettingsView: React.FC<TeamSettingsViewProps> = ({
             isOwner: false,
             createdAt: body.user.created_at,
             brandsAccess: body.user.brands_access,
+            subscriptionEndsAt,
           });
         }
       }
@@ -466,6 +490,21 @@ export const TeamSettingsView: React.FC<TeamSettingsViewProps> = ({
               </select>
               <p className="text-[11px] text-slate-400 mt-1">{ROLE_DESCRIPTIONS[role]}</p>
             </div>
+            {role === 'subscriber' && (
+              <div>
+                <label className="font-bold text-slate-700 block mb-1.5">تاريخ انتهاء الاشتراك</label>
+                <input
+                  type="date"
+                  value={subEndsAt}
+                  onChange={(e) => setSubEndsAt(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  dir="ltr"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  الحساب يتوقف تلقائياً بعد هذا التاريخ حتى تجددي الاشتراك. اتركيه فارغاً لاشتراك مفتوح.
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="text-xs">
@@ -572,6 +611,24 @@ export const TeamSettingsView: React.FC<TeamSettingsViewProps> = ({
                       {u.isActive === false && (
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 font-bold">
                           معطّل
+                        </span>
+                      )}
+                      {u.role === 'subscriber' && u.subscriptionEndsAt && (
+                        <span
+                          className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
+                            new Date(u.subscriptionEndsAt).getTime() < Date.now()
+                              ? 'bg-rose-100 text-rose-700'
+                              : 'bg-emerald-100 text-emerald-700'
+                          }`}
+                        >
+                          {new Date(u.subscriptionEndsAt).getTime() < Date.now()
+                            ? `اشتراك منتهي منذ ${new Date(u.subscriptionEndsAt).toLocaleDateString('ar-EG')}`
+                            : `اشتراك حتى ${new Date(u.subscriptionEndsAt).toLocaleDateString('ar-EG')}`}
+                        </span>
+                      )}
+                      {u.role === 'subscriber' && !u.subscriptionEndsAt && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-bold">
+                          اشتراك مفتوح
                         </span>
                       )}
                     </div>

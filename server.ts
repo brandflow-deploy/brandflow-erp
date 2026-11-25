@@ -408,13 +408,19 @@ app.patch('/api/admin/users/:id', requireAuth, requireAdmin, async (req, res) =>
     });
   }
   const { id } = req.params;
-  const { name, role, isActive, brandsAccess, password } = req.body || {};
+  const { name, role, isActive, brandsAccess, password, subscriptionEndsAt } = req.body || {};
   try {
     const updates: Record<string, any> = {};
     if (typeof name === 'string' && name.trim()) updates.name = name.trim();
     if (typeof role === 'string') updates.role = role;
     if (typeof isActive === 'boolean') updates.is_active = isActive;
     if (Array.isArray(brandsAccess) && brandsAccess.length > 0) updates.brands_access = brandsAccess;
+    if (subscriptionEndsAt === null) updates.subscription_ends_at = null;
+    else if (typeof subscriptionEndsAt === 'string' && subscriptionEndsAt.trim()) {
+      const d = new Date(subscriptionEndsAt);
+      if (isNaN(d.getTime())) return res.status(400).json({ error: 'تاريخ انتهاء الاشتراك غير صالح' });
+      updates.subscription_ends_at = d.toISOString();
+    }
 
     if (Object.keys(updates).length > 0) {
       const { error } = await supabaseService.from('team_users').update(updates).eq('id', id);
@@ -471,6 +477,138 @@ app.delete('/api/admin/users/:id', requireAuth, requireAdmin, async (req, res) =
     const { error } = await supabaseService.auth.admin.deleteUser(id);
     if (error) return res.status(400).json({ error: error.message });
     return res.json({ success: true });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'خطأ غير متوقع' });
+  }
+});
+
+// ==============================================================================
+// Webhook عام: استقبال أوردرات من المواقع/المتاجر المربوطة (مفتاح API لكل حساب)
+// ==============================================================================
+app.post('/api/webhook/orders', async (req, res) => {
+  if (!supabaseService) {
+    return res.status(503).json({ error: 'خدمة الربط غير مضبوطة على السيرفر' });
+  }
+  const apiKey = String(req.headers['x-api-key'] || '').trim();
+  if (!apiKey) {
+    return res.status(401).json({ error: 'مفتاح الربط مطلوب في ترويسة x-api-key' });
+  }
+  try {
+    const { data: conn, error: connErr } = await supabaseService
+      .from('website_connections')
+      .select('*')
+      .eq('api_key', apiKey)
+      .eq('is_active', true)
+      .maybeSingle();
+    if (connErr) return res.status(500).json({ error: connErr.message });
+    if (!conn) return res.status(401).json({ error: 'مفتاح ربط غير صالح أو موقوف' });
+
+    const body = req.body || {};
+    const customerName = String(body.customerName || body.customer_name || '').trim();
+    const customerPhone = String(body.customerPhone || body.customer_phone || '').trim();
+    const customerAddress = String(body.customerAddress || body.customer_address || '').trim();
+    const city = String(body.city || '').trim();
+    const rawItems = Array.isArray(body.items) ? body.items : [];
+    if (!customerName || !customerPhone || !customerAddress || !city) {
+      return res.status(400).json({
+        error: 'بيانات ناقصة: customerName و customerPhone و customerAddress و city مطلوبة',
+      });
+    }
+    if (rawItems.length === 0) {
+      return res.status(400).json({ error: 'items مطلوبة ولا يمكن أن تكون فارغة' });
+    }
+    const items = rawItems.map((it: any, idx: number) => {
+      const qty = Math.max(1, Number(it.quantity ?? it.qty ?? 1) || 1);
+      const unitPrice = Math.max(0, Number(it.unitPrice ?? it.price ?? 0) || 0);
+      return {
+        id: `web-item-${Date.now()}-${idx}`,
+        productName: String(it.productName || it.name || `صنف ${idx + 1}`).trim(),
+        size: it.size ? String(it.size) : undefined,
+        color: it.color ? String(it.color) : undefined,
+        quantity: qty,
+        unitPrice,
+        rawMaterialCost: 0,
+        manufacturingCost: 0,
+        totalSellingPrice: unitPrice * qty,
+      };
+    });
+    const itemsSubtotal = items.reduce((sum: number, it: any) => sum + it.totalSellingPrice, 0);
+
+    const { data: brand } = await supabaseService
+      .from('brands')
+      .select('id, name, default_customer_shipping, default_actual_shipping')
+      .eq('id', conn.brand_id)
+      .maybeSingle();
+    if (!brand) return res.status(400).json({ error: 'البراند المربوط لم يعد موجوداً' });
+
+    const customerShipping = Math.max(
+      0,
+      Number(body.customerShipping ?? body.shipping ?? brand.default_customer_shipping ?? 0) || 0
+    );
+    const totalAmount = itemsSubtotal + customerShipping;
+    const now = new Date().toISOString();
+    const notesParts = ['أوردر وارد من الموقع تلقائياً'];
+    if (body.notes) notesParts.push(String(body.notes));
+
+    // رقم الأوردر عالمي وفريد: نحسب التالي ونعيد المحاولة عند أي تعارض
+    const computeNext = async (): Promise<string> => {
+      const { data: rows } = await supabaseService.from('orders').select('order_number');
+      let max = 1000;
+      (rows || []).forEach((r: any) => {
+        const m = String(r.order_number || '').match(/\d+/);
+        if (m) {
+          const n = parseInt(m[0], 10);
+          if (n > max) max = n;
+        }
+      });
+      return `ORD-${max + 1}`;
+    };
+
+    let orderNumber = await computeNext();
+    let inserted: any = null;
+    let lastError: string | null = null;
+    for (let attempt = 0; attempt < 6 && !inserted; attempt++) {
+      const row = {
+        id: `web-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        order_number: orderNumber,
+        brand_id: brand.id,
+        brand_name: brand.name,
+        customer_name: customerName,
+        customer_phone: customerPhone,
+        customer_phone_2: body.customerPhone2 ? String(body.customerPhone2) : null,
+        customer_address: customerAddress,
+        city,
+        items,
+        items_subtotal: itemsSubtotal,
+        customer_shipping: customerShipping,
+        total_amount: totalAmount,
+        actual_shipping_cost: Number(brand.default_actual_shipping ?? 0) || 0,
+        extra_expenses: 0,
+        total_raw_cost: 0,
+        total_manufacturing_cost: 0,
+        total_cost: Number(brand.default_actual_shipping ?? 0) || 0,
+        net_profit: totalAmount - (Number(brand.default_actual_shipping ?? 0) || 0),
+        profit_margin: totalAmount > 0 ? ((totalAmount - (Number(brand.default_actual_shipping ?? 0) || 0)) / totalAmount) * 100 : 0,
+        status: 'manufacturing',
+        inventory_deducted: false,
+        notes: notesParts.join(' — '),
+        created_at: now,
+        updated_at: now,
+      };
+      const { data, error } = await supabaseService.from('orders').insert(row).select().single();
+      if (!error) {
+        inserted = data;
+      } else if (/duplicate|unique|order_number/i.test(error.message || '')) {
+        orderNumber = `ORD-${parseInt(orderNumber.replace(/\D+/g, ''), 10) + 1}`;
+        lastError = error.message;
+      } else {
+        return res.status(500).json({ error: error.message });
+      }
+    }
+    if (!inserted) {
+      return res.status(500).json({ error: lastError || 'تعذر تسجيل الأوردر' });
+    }
+    return res.json({ success: true, orderNumber: inserted.order_number, orderId: inserted.id });
   } catch (e: any) {
     return res.status(500).json({ error: e?.message || 'خطأ غير متوقع' });
   }

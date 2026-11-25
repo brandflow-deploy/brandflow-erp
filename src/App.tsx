@@ -53,6 +53,19 @@ import { CheckCircle2, AlertCircle, Plus, Edit2, Loader2 } from 'lucide-react';
 
 const DEV_SESSION_KEY = 'brandflow_dev_session';
 
+// انتهاء الاشتراك اليدوي للعملاء المشتركين: الحساب يتوقف تلقائياً بعد تاريخ الانتهاء
+export const isSubscriptionExpired = (u: User): boolean =>
+  u.role === 'subscriber' &&
+  !!u.subscriptionEndsAt &&
+  !isNaN(new Date(u.subscriptionEndsAt).getTime()) &&
+  new Date(u.subscriptionEndsAt).getTime() < Date.now();
+
+export const subscriptionExpiredMessage = (u: User): string => {
+  const d = u.subscriptionEndsAt ? new Date(u.subscriptionEndsAt) : null;
+  const dateStr = d && !isNaN(d.getTime()) ? d.toLocaleDateString('ar-EG') : '';
+  return `انتهى اشتراك حسابك${dateStr ? ` بتاريخ ${dateStr}` : ''}. للتجديد تواصل مع الإدارة — بياناتك محفوظة وستظهر كاملة فور التفعيل.`;
+};
+
 const DEV_ADMIN_USER: User = {
   id: 'dev-admin',
   name: 'مدير التطوير',
@@ -159,6 +172,10 @@ export default function App() {
           setProfileError('هذا الحساب غير مفعّل بعد. لو سجّلت جديداً كمسوّق فحسابك قيد مراجعة الإدارة، ولو كنت عضواً سابقاً فراجع المدير العام.');
           await signOut();
           setCurrentUser(null);
+        } else if (isSubscriptionExpired(profile)) {
+          setProfileError(subscriptionExpiredMessage(profile));
+          await signOut();
+          setCurrentUser(null);
         } else {
           setCurrentUser(profile);
           setProfileError(null);
@@ -183,6 +200,10 @@ export default function App() {
           setProfileError(
             'تم إيقاف هذا الحساب من الإدارة. لو كنت مشتركاً سابقاً فقد يكون الاشتراك منتهياً — تواصل مع الإدارة للتجديد.'
           );
+          await signOut();
+          setCurrentUser(null);
+        } else if (isSubscriptionExpired(profile)) {
+          setProfileError(subscriptionExpiredMessage(profile));
           await signOut();
           setCurrentUser(null);
         }
