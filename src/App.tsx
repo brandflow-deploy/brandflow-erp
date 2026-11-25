@@ -27,6 +27,7 @@ import { SmartOrderModal } from './components/SmartOrderModal';
 import { OrderFormModal } from './components/OrderFormModal';
 import { QuickActionModal } from './components/QuickActionModal';
 import { BrandsManagementModal } from './components/BrandsManagementModal';
+import { IntegrationsView } from './components/IntegrationsView';
 import { ProductsCatalogModal } from './components/ProductsCatalogModal';
 import { PrintManifestModal } from './components/PrintManifestModal';
 import { LoginScreen } from './components/LoginScreen';
@@ -1309,6 +1310,10 @@ export default function App() {
         )}
 
         {/* AUDIT LOG TAB (Admin only) */}
+        {activeTab === 'integrations' && (isAdmin || isModerator || isAffiliate || isSubscriber) && (
+          <IntegrationsView currentUser={effectiveUser} />
+        )}
+
         {activeTab === 'audit' && isAdmin && (
           <div className="space-y-4">
             <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex items-center justify-between">

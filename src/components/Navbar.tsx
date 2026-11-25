@@ -8,6 +8,7 @@ import {
   Zap,
   Settings,
   LogOut,
+  Link2,
 } from 'lucide-react';
 import { AppTab, User, CurrencyConfig } from '../types';
 import { PWAInstallButton } from './PWAInstallButton';
@@ -64,6 +65,11 @@ export const Navbar: React.FC<NavbarProps> = ({
     currentUser.role === 'affiliate' ||
     currentUser.role === 'subscriber';
   const canSeeBrands =
+    currentUser.role === 'admin' ||
+    currentUser.role === 'moderator' ||
+    currentUser.role === 'affiliate' ||
+    currentUser.role === 'subscriber';
+  const canSeeIntegrations =
     currentUser.role === 'admin' ||
     currentUser.role === 'moderator' ||
     currentUser.role === 'affiliate' ||
@@ -150,6 +156,20 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 <Tag className="w-4 h-4" />
                 <span>البراندات</span>
+              </button>
+            )}
+
+            {canSeeIntegrations && (
+              <button
+                onClick={() => setActiveTab('integrations')}
+                className={`px-3 py-2 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 ${
+                  activeTab === 'integrations'
+                    ? 'bg-slate-800 text-indigo-400'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
+                }`}
+              >
+                <Link2 className="w-4 h-4" />
+                <span>الربط</span>
               </button>
             )}
 
@@ -282,6 +302,16 @@ export const Navbar: React.FC<NavbarProps> = ({
               }`}
             >
               البراندات
+            </button>
+          )}
+          {canSeeIntegrations && (
+            <button
+              onClick={() => setActiveTab('integrations')}
+              className={`px-2 py-1.5 rounded whitespace-nowrap ${
+                activeTab === 'integrations' ? 'text-indigo-400 font-bold' : 'text-slate-400'
+              }`}
+            >
+              الربط
             </button>
           )}
           {canSeeAudit && (

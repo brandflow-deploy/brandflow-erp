@@ -253,3 +253,28 @@ insert into public.app_settings (key, value) values ('commission_due_delay_days'
 -- ==============================================================================
 alter table public.orders add column if not exists delivered_at timestamptz;
 alter table public.orders add column if not exists collected_at timestamptz;
+
+-- ==============================================================================
+-- 8. شركات الشحن المرتبطة بكل حساب (قسم الربط) — كل مستخدم يدير شركاته فقط
+-- ==============================================================================
+create table if not exists public.shipping_companies (
+  id text primary key,
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  name text not null,
+  portal_url text,
+  contact_phone text,
+  contract_number text,
+  notes text,
+  status text not null default 'preparing', -- preparing | active
+  created_at timestamptz not null default now()
+);
+
+alter table public.shipping_companies enable row level security;
+
+create policy "owner manages own shipping companies" on public.shipping_companies
+  for all to authenticated
+  using (owner_id = auth.uid())
+  with check (owner_id = auth.uid());
+
+grant select, insert, update, delete on public.shipping_companies to authenticated;
+grant all on public.shipping_companies to service_role;

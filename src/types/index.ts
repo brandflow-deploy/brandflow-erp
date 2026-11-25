@@ -14,7 +14,20 @@ export type UserRole =
   | 'affiliate'   // مسوّق بالعمولة (براند واحد خاص به: أوردراته ومنتجاته ومخزونه للعرض + عمولته، بدون تكاليف)
   | 'subscriber'; // عميل مشترك خارجي (براند واحد خاص به مثل المسوّق، لكن يرى تكاليف منتجاته وأوردراته)
 
-export type AppTab = 'dashboard' | 'orders' | 'catalog' | 'brands' | 'audit' | 'settings';
+export type AppTab = 'dashboard' | 'orders' | 'catalog' | 'brands' | 'integrations' | 'audit' | 'settings';
+
+// شركة شحن مرتبطة بحساب مستخدم (قسم الربط) — تزامن الحالات يُفعَّل لاحقاً بعد جاهزية التعاقدات
+export interface ShippingCompany {
+  id: string;
+  ownerId: string;             // معرّف المستخدم صاحب الحساب (auth.users uuid)
+  name: string;
+  portalUrl?: string;          // رابط بوابة شركة الشحن إن وجد
+  contactPhone?: string;       // رقم تواصل الشركة أو مسؤول الحساب هناك
+  contractNumber?: string;     // رقم/كود التعاقد عند الشركة
+  notes?: string;
+  status: 'preparing' | 'active'; // قيد التجهيز | مفعّلة
+  createdAt: string;
+}
 
 export interface Brand {
   id: string;
