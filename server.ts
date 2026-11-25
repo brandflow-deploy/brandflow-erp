@@ -592,6 +592,7 @@ app.post('/api/webhook/orders', async (req, res) => {
         status: 'manufacturing',
         inventory_deducted: false,
         notes: notesParts.join(' — '),
+        created_by: conn.label ? `موقع ${conn.label}` : 'الموقع (webhook)',
         created_at: now,
         updated_at: now,
       };
