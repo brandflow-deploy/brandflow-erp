@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Users,
   UserPlus,
@@ -14,6 +14,7 @@ import {
   Cloud,
   Eye,
   EyeOff,
+  BadgePercent,
 } from 'lucide-react';
 import { Brand, User, UserRole } from '../types';
 import { getAccessToken, isSupabaseConfigured, testSupabaseConnection } from '../lib/supabase';
@@ -29,6 +30,8 @@ interface TeamSettingsViewProps {
   onResetToDemoData: () => void;
   onExportBackup: () => void;
   onImportBackup: (file: File) => Promise<{ ok: boolean; message: string }>;
+  commissionDueDelayDays?: number;
+  onCommissionDueDelayChange?: (days: number) => void;
 }
 
 const ROLE_LABELS: Record<UserRole, string> = {
@@ -67,6 +70,8 @@ export const TeamSettingsView: React.FC<TeamSettingsViewProps> = ({
   onResetToDemoData,
   onExportBackup,
   onImportBackup,
+  commissionDueDelayDays = 0,
+  onCommissionDueDelayChange,
 }) => {
   const supabaseReady = isSupabaseConfigured();
 
@@ -87,6 +92,10 @@ export const TeamSettingsView: React.FC<TeamSettingsViewProps> = ({
   const [importMessage, setImportMessage] = useState<string | null>(null);
   const [cloudStatus, setCloudStatus] = useState<string | null>(null);
   const [pendingRoles, setPendingRoles] = useState<Record<string, UserRole>>({});
+  const [delayInput, setDelayInput] = useState<string>(String(commissionDueDelayDays));
+  useEffect(() => {
+    setDelayInput(String(commissionDueDelayDays));
+  }, [commissionDueDelayDays]);
 
   // الموافقة على حساب معلّق مع تحديد نوعه (مسوّق بالعمولة أو عميل مشترك)
   const handleApprove = async (u: User) => {
@@ -611,6 +620,45 @@ export const TeamSettingsView: React.FC<TeamSettingsViewProps> = ({
           })}
         </div>
       </div>
+
+      {/* إعدادات استحقاق عمولة المسوّق — للإدارة فقط */}
+      {currentUser.role === 'admin' && supabaseReady && onCommissionDueDelayChange && (
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-3">
+          <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+            <BadgePercent className="w-4 h-4 text-violet-600" />
+            <span>إعدادات استحقاق العمولة</span>
+          </h2>
+          <p className="text-[11px] text-slate-500">
+            عمولة المسوّق تُصبح <b>مستحقة الصرف</b> بعد تسليم الأوردر وتحصيل قيمته. تقدري تحددي
+            عدد أيام انتظار إضافية بعد التسليم قبل اعتبار العمولة مستحقة (0 = مستحقة فور
+            التسليم والتحصيل).
+          </p>
+          <div className="flex items-center gap-3 flex-wrap">
+            <label className="text-xs font-bold text-slate-700">أيام الانتظار بعد التسليم:</label>
+            <input
+              type="number"
+              min={0}
+              max={90}
+              value={delayInput}
+              onChange={(e) => setDelayInput(e.target.value)}
+              className="w-24 px-3 py-2 text-xs font-mono border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500"
+            />
+            <button
+              onClick={() => {
+                const n = Math.max(0, Math.min(90, parseInt(delayInput, 10) || 0));
+                setDelayInput(String(n));
+                onCommissionDueDelayChange(n);
+              }}
+              className="px-4 py-2 text-xs font-bold text-white bg-violet-600 hover:bg-violet-700 rounded-xl transition-colors"
+            >
+              حفظ الإعداد
+            </button>
+          </div>
+          <p className="text-[10px] text-slate-400">
+            الإعداد الحالي: {commissionDueDelayDays === 0 ? 'مستحقة فور التسليم والتحصيل' : `مستحقة بعد ${commissionDueDelayDays} يوم من التسليم والتحصيل`}
+          </p>
+        </div>
+      )}
 
       {/* إعدادات البيانات */}
       <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">

@@ -20,6 +20,7 @@ interface OrdersListViewProps {
   brands: Brand[];
   products: Product[];
   currentUser: User;
+  commissionDueDelayDays?: number;
   currency: CurrencyConfig;
   selectedStatusFilter: string;
   onChangeStatusFilter: (st: string) => void;
@@ -38,6 +39,7 @@ export const OrdersListView: React.FC<OrdersListViewProps> = ({
   brands,
   products,
   currentUser,
+  commissionDueDelayDays = 0,
   currency,
   selectedStatusFilter,
   onChangeStatusFilter,
@@ -83,6 +85,13 @@ export const OrdersListView: React.FC<OrdersListViewProps> = ({
   };
 
   // Production only sees manufacturing & ready_to_ship orders
+
+  // استحقاق العمولة: تصبح مستحقة بعد التسليم والتحصيل، وبعد عدد الأيام التي تحددها الإدارة (0 = فور التسليم)
+  const isCommissionDue = (order: Order): boolean => {
+    if (order.status !== 'delivered') return false;
+    const ref = new Date(order.updatedAt || order.createdAt).getTime();
+    return Date.now() - ref >= commissionDueDelayDays * 86400000;
+  };
   const roleScopedOrders = useMemo(() => {
     if (isProduction) {
       return orders.filter(
@@ -403,8 +412,8 @@ export const OrdersListView: React.FC<OrdersListViewProps> = ({
                   <th className="px-4 py-3.5">التكلفة وصافي المكسب</th>
                 )}
                 {canViewCommission && (
-                  <th className="px-4 py-3.5" title="العمولة تقديرية وليست مستحقة الصرف إلا بعد تأكيد التسليم وقواعد المرتجعات">
-                    العمولة (تقديرية)
+                  <th className="px-4 py-3.5" title="العمولة تُصبح مستحقة الصرف بعد التسليم والتحصيل حسب إعداد الإدارة">
+                    العمولة
                   </th>
                 )}
                 <th className="px-4 py-3.5">حالة الأوردر</th>
@@ -533,10 +542,14 @@ export const OrdersListView: React.FC<OrdersListViewProps> = ({
 
                       {canViewCommission && (
                         <td className="px-4 py-3">
-                          <div className="font-mono tabular-nums font-bold text-violet-700 text-xs">
+                          <div className={`font-mono tabular-nums font-bold text-xs ${isCommissionDue(order) ? 'text-emerald-700' : 'text-violet-700'}`}>
                             {formatCurrency(orderCommission(order), currency)}
                           </div>
-                          <div className="text-[9px] text-slate-400">تقديرية — تُؤكَّد بعد التسليم والمرتجعات</div>
+                          {isCommissionDue(order) ? (
+                            <div className="text-[9px] font-bold text-emerald-600">مستحقة للصرف</div>
+                          ) : (
+                            <div className="text-[9px] text-slate-400">تقديرية — تُستحق بعد التسليم والتحصيل{commissionDueDelayDays > 0 ? ` + ${commissionDueDelayDays} يوم` : ''}</div>
+                          )}
                         </td>
                       )}
 

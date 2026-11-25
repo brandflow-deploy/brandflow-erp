@@ -40,6 +40,8 @@ import {
   isSupabaseConfigured,
   initSupabaseRuntime,
   loadWorkspaceFromSupabase,
+  loadCommissionDueDelay,
+  saveCommissionDueDelay,
   fetchCurrentProfile,
   signOut,
   onAuthStateChange,
@@ -74,6 +76,7 @@ export default function App() {
   const [brands, setBrands] = useState<Brand[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [commissionDueDelayDays, setCommissionDueDelayDays] = useState<number>(0);
   const [users, setUsers] = useState<User[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [dataLoaded, setDataLoaded] = useState(false);
@@ -256,6 +259,9 @@ export default function App() {
           setOrders(data.orders);
           setUsers(data.users);
           setAuditLogs(data.auditLogs);
+          loadCommissionDueDelay().then((d) => {
+            if (!cancelled) setCommissionDueDelayDays(d);
+          });
           // أول تشغيل على قاعدة فارغة: زرع برانداتها الثلاثة الحقيقية
           if (data.brands.length === 0 && effectiveUser?.role === 'admin') {
             for (const b of INITIAL_BRANDS) {
@@ -973,6 +979,7 @@ export default function App() {
             brands={visibleBrands}
             products={visibleProducts}
             currentUser={effectiveUser}
+            commissionDueDelayDays={commissionDueDelayDays}
             currency={currentCurrency}
             selectedStatusFilter={selectedStatusFilter}
             onChangeStatusFilter={setSelectedStatusFilter}
@@ -1314,6 +1321,17 @@ export default function App() {
             brands={brands}
             currentUser={effectiveUser}
             ordersCount={orders.length}
+        commissionDueDelayDays={commissionDueDelayDays}
+        onCommissionDueDelayChange={(days) => {
+          void saveCommissionDueDelay(days).then((r) => {
+            if (r.ok) {
+              setCommissionDueDelayDays(days);
+              showToast(`تم حفظ إعداد استحقاق العمولة: ${days === 0 ? 'فور التسليم والتحصيل' : `بعد ${days} يوم من التسليم والتحصيل`}`);
+            } else {
+              showToast(`فشل حفظ الإعداد: ${r.error || 'خطأ غير معروف'}`, 'error');
+            }
+          });
+        }}
             onProfileSaved={handleProfileSaved}
             onDeleteUser={handleDeleteTeamUser}
             onClearDemoOrders={handleClearDemoOrders}

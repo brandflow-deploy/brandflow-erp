@@ -226,3 +226,24 @@ create policy "members insert audit_logs" on public.audit_logs
 -- (Authentication > Users > Add user)، سجّل دخوله من التطبيق وسيصبح مالكاً
 -- بصلاحية مدير عام تلقائياً (أول حساب فقط).
 -- ==============================================================================
+
+-- ==============================================================================
+-- 6. جدول إعدادات التطبيق العامة (تتحكم فيها الإدارة فقط)
+-- ==============================================================================
+create table if not exists public.app_settings (
+  key text primary key,
+  value text not null
+);
+
+alter table public.app_settings enable row level security;
+
+create policy "members read app_settings" on public.app_settings
+  for select using (public.current_user_role() is not null);
+create policy "admin insert app_settings" on public.app_settings
+  for insert with check (public.is_admin());
+create policy "admin update app_settings" on public.app_settings
+  for update using (public.is_admin());
+create policy "admin delete app_settings" on public.app_settings
+  for delete using (public.is_admin());
+
+insert into public.app_settings (key, value) values ('commission_due_delay_days', '0') on conflict (key) do nothing;

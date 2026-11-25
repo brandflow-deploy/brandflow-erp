@@ -352,6 +352,26 @@ export async function loadWorkspaceFromSupabase(): Promise<{ data?: WorkspacePay
   }
 }
 
+// إعدادات استحقاق عمولة المسوّق (تتحكم فيها الإدارة من صفحة الإعدادات)
+export async function loadCommissionDueDelay(): Promise<number> {
+  if (!supabase) return 0;
+  const { data } = await supabase
+    .from('app_settings')
+    .select('value')
+    .eq('key', 'commission_due_delay_days')
+    .maybeSingle();
+  const n = parseInt(data?.value ?? '0', 10);
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+}
+
+export async function saveCommissionDueDelay(days: number): Promise<{ ok: boolean; error?: string }> {
+  if (!supabase) return { ok: false, error: 'Supabase غير مضبوط' };
+  const { error } = await supabase
+    .from('app_settings')
+    .upsert({ key: 'commission_due_delay_days', value: String(days) }, { onConflict: 'key' });
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
 export async function testSupabaseConnection(): Promise<{ ok: boolean; message: string }> {
   if (!supabase) {
     return {
