@@ -517,6 +517,11 @@ export default function App() {
       entersRestoredState
     );
 
+    // لو الأوردر اتسلّم من خلال شاشة التعديل، سجّل وقت التسليم (أول مرة فقط)
+    if (finalOrder.status === 'delivered' && !finalOrder.deliveredAt) {
+      finalOrder.deliveredAt = existing?.deliveredAt || new Date().toISOString();
+    }
+
     persistProductsDiff(products, updatedProducts);
     setProducts(updatedProducts);
     if (inventoryLog) logsToAdd.push(inventoryLog);
@@ -608,6 +613,10 @@ export default function App() {
       status: newStatus,
       updatedAt: new Date().toISOString(),
       updatedBy: effectiveUser?.name,
+      // سجّل وقت التسليم أول مرة يوصل فيها الأوردر لحالة التسليم — قاعدة استحقاق العمولة تعتمد عليه
+      ...(newStatus === 'delivered' && !target.deliveredAt
+        ? { deliveredAt: new Date().toISOString() }
+        : {}),
     };
 
     const entersDeducted = newStatus === 'shipped' || newStatus === 'delivered';
@@ -640,6 +649,25 @@ export default function App() {
         ? `تم تحديث ${target.orderNumber} إلى "${STATUS_NAMES[newStatus]}" وتحديث رصيد المخزن تلقائياً`
         : `تم تغيير حالة أوردر ${target.orderNumber} إلى: ${STATUS_NAMES[newStatus]}`
     );
+  };
+
+  // تسجيل تحصيل مبلغ الأوردر (للإدارة) — العمولة لا تصبح مستحقة قبل التحصيل
+  const handleMarkOrderCollected = (orderId: string) => {
+    if (effectiveUser?.role !== 'admin') return;
+    const target = orders.find((o) => o.id === orderId);
+    if (!target || target.collectedAt) return;
+    const updated: Order = {
+      ...target,
+      collectedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      updatedBy: effectiveUser?.name,
+    };
+    setOrders((prev) => prev.map((o) => (o.id === orderId ? updated : o)));
+    store.upsertOrder(updated).then((r) => reportSave(r, `تحصيل الأوردر ${target.orderNumber}`));
+    appendLogs([
+      buildLog('تسجيل تحصيل', `تم تسجيل تحصيل مبلغ الأوردر ${target.orderNumber}`, updated),
+    ]);
+    showToast(`تم تسجيل تحصيل الأوردر ${target.orderNumber}`);
   };
 
   // Delete Order (Admin only) - مع إرجاع المخزون إن كان مخصوماً
@@ -994,6 +1022,7 @@ export default function App() {
             }}
             onDeleteOrder={handleDeleteOrder}
             onUpdateOrderStatus={handleUpdateOrderStatus}
+            onMarkOrderCollected={handleMarkOrderCollected}
             onPrintOrders={handlePrintOrders}
             selectedBrandFilter={selectedBrandFilter}
             onSelectBrandFilter={setSelectedBrandFilter}

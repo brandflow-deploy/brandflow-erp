@@ -29,6 +29,7 @@ interface OrdersListViewProps {
   onEditOrder: (order: Order) => void;
   onDeleteOrder: (orderId: string) => void;
   onUpdateOrderStatus: (orderId: string, status: OrderStatus) => void;
+  onMarkOrderCollected?: (orderId: string) => void;
   onPrintOrders: (orders: Order[]) => void;
   onSelectBrandFilter: (brandId: string) => void;
   selectedBrandFilter: string;
@@ -48,6 +49,7 @@ export const OrdersListView: React.FC<OrdersListViewProps> = ({
   onEditOrder,
   onDeleteOrder,
   onUpdateOrderStatus,
+  onMarkOrderCollected,
   onPrintOrders,
   selectedBrandFilter,
   onSelectBrandFilter,
@@ -86,10 +88,12 @@ export const OrdersListView: React.FC<OrdersListViewProps> = ({
 
   // Production only sees manufacturing & ready_to_ship orders
 
-  // استحقاق العمولة: تصبح مستحقة بعد التسليم والتحصيل، وبعد عدد الأيام التي تحددها الإدارة (0 = فور التسليم)
+  // استحقاق العمولة: تُستحق بعد التسليم وتسجيل التحصيل معاً، وبعد عدد الأيام التي تحددها الإدارة (0 = فور التسليم)
+  // فترة الانتظار تُحسب من وقت التسليم المسجّل (deliveredAt) وليس من آخر تعديل على الأوردر
   const isCommissionDue = (order: Order): boolean => {
     if (order.status !== 'delivered') return false;
-    const ref = new Date(order.updatedAt || order.createdAt).getTime();
+    if (!order.collectedAt) return false;
+    const ref = new Date(order.deliveredAt || order.updatedAt || order.createdAt).getTime();
     return Date.now() - ref >= commissionDueDelayDays * 86400000;
   };
   const roleScopedOrders = useMemo(() => {
@@ -547,8 +551,28 @@ export const OrdersListView: React.FC<OrdersListViewProps> = ({
                           </div>
                           {isCommissionDue(order) ? (
                             <div className="text-[9px] font-bold text-emerald-600">مستحقة للصرف</div>
+                          ) : order.status !== 'delivered' ? (
+                            <div className="text-[9px] text-slate-400">تقديرية — تُستحق بعد التسليم والتحصيل</div>
+                          ) : !order.collectedAt ? (
+                            <div className="text-[9px] text-amber-600">تقديرية — تم التسليم، بانتظار تسجيل التحصيل</div>
                           ) : (
-                            <div className="text-[9px] text-slate-400">تقديرية — تُستحق بعد التسليم والتحصيل{commissionDueDelayDays > 0 ? ` + ${commissionDueDelayDays} يوم` : ''}</div>
+                            <div className="text-[9px] text-slate-400">تقديرية — مستحقة بعد {commissionDueDelayDays} يوم من التسليم</div>
+                          )}
+                          {currentUser.role === 'admin' &&
+                            order.status === 'delivered' &&
+                            !order.collectedAt &&
+                            onMarkOrderCollected && (
+                              <button
+                                onClick={() => onMarkOrderCollected(order.id)}
+                                className="mt-1 px-2 py-0.5 text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors"
+                              >
+                                تسجيل التحصيل
+                              </button>
+                            )}
+                          {order.collectedAt && (
+                            <div className="text-[9px] text-slate-400 font-mono">
+                              حُصِّل: {new Date(order.collectedAt).toLocaleDateString('ar-EG', { month: 'short', day: 'numeric' })}
+                            </div>
                           )}
                         </td>
                       )}

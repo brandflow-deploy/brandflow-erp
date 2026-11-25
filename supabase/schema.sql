@@ -247,3 +247,9 @@ create policy "admin delete app_settings" on public.app_settings
   for delete using (public.is_admin());
 
 insert into public.app_settings (key, value) values ('commission_due_delay_days', '0') on conflict (key) do nothing;
+
+-- ==============================================================================
+-- 7. تتبع وقت التسليم ووقت التحصيل لكل أوردر (قاعدة استحقاق العمولة)
+-- ==============================================================================
+alter table public.orders add column if not exists delivered_at timestamptz;
+alter table public.orders add column if not exists collected_at timestamptz;

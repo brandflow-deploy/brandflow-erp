@@ -93,6 +93,8 @@ export interface Order {
   netProfit: number;           // totalAmount - totalCost
   profitMargin: number;        // (netProfit / totalAmount) * 100
   status: OrderStatus;
+  deliveredAt?: string | null; // وقت تسجيل التسليم (لا يتغير بأي تعديل لاحق على الأوردر)
+  collectedAt?: string | null; // وقت تسجيل تحصيل المبلغ — العمولة لا تُستحق قبله
   inventoryDeducted?: boolean; // هل تم خصم الكمية من المخزن تلقائياً؟
   notes?: string;
   createdAt: string;
